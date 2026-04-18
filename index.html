@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -70,6 +69,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   border-radius: 20px; border: 1px solid var(--border); background: transparent;
   color: var(--dim); cursor: pointer; touch-action: manipulation; transition: all .15s; }
 .offset-chip.active { border-color: var(--ir); background: rgba(91,184,245,.12); color: var(--ir); }
+.offset-chip-wide { flex-shrink: 0; }
+.offset-chip-inactive { opacity: .3; cursor: default; }
 /* Card */
 .pill-card { background: var(--surface); border: 1px solid var(--border);
   border-radius: 14px; padding: 16px; margin-bottom: 10px; }
@@ -276,14 +277,15 @@ function pillIsVisible(pill, now) {
 
 // ── State ─────────────────────────────────────────────────
 let pills = [];
-let offsetIdx = 0;
+let offsetIdx    = 0;
+let scrubbedTs  = null; // timestamp set by scrubber, null = inactive
 let undoItem  = null;
 let undoTimer = null;
 let curveCache = null; // { pills_hash, data, win }
 
 function loadPills() {
   try {
-    const raw = localStorage.getItem('medikinetics-v1');
+    const raw = localStorage.getItem('medikinetics-v2');
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -293,15 +295,16 @@ function loadPills() {
 }
 
 function savePills() {
-  try { localStorage.setItem('medikinetics-v1', JSON.stringify(pills)); }
+  try { localStorage.setItem('medikinetics-v2', JSON.stringify(pills)); }
   catch (e) { console.error('MedKit: save failed', e); }
 }
 
 function logPill(type) {
-  const takenAt = Date.now() - OFFSETS[offsetIdx].ms;
+  const takenAt = offsetIdx === -1 && scrubbedTs ? scrubbedTs : Date.now() - OFFSETS[offsetIdx].ms;
   pills = [{ id: Date.now(), type, takenAt }, ...pills];
   savePills();
   offsetIdx = 0;
+  scrubbedTs = null;
   render();
 }
 
@@ -457,6 +460,8 @@ function renderChart(today, now) {
     tooltip.style.top  = (clientY - rect.top - 60) + 'px';
     tooltip.style.display = 'block';
     if (hideTimer) clearTimeout(hideTimer);
+    // Write scrubbed timestamp — only past times make sense for logging
+    if (closest.ts <= Date.now()) setScrubbed(closest.ts);
   }
 
   function hideTooltip(delay = 0) {
@@ -515,10 +520,20 @@ function render() {
 
   // Offset chips
   const or = document.getElementById('offset-row');
-  or.innerHTML = OFFSETS.map((o, i) => `
+  const scrubLabel = scrubbedTs ? fmt(scrubbedTs) : '·  ·';
+  const scrubActive = offsetIdx === -1;
+  // scrubber chip (left, wide, inactive until scrubbed)
+  const scrubChip = `<button class="offset-chip offset-chip-wide ${scrubActive ? 'active' : ''} ${!scrubbedTs ? 'offset-chip-inactive' : ''}"
+    onclick="${scrubbedTs ? 'setScrubbed(' + scrubbedTs + ')' : ''}" style="min-width:64px;text-align:center">${scrubLabel}</button>`;
+  // middle chips: -6h(5) -3h(4) -2h(3) -1h(2) -30m(1) — reversed for left-to-right reading
+  const middleIdxs = [5,4,3,2,1];
+  const middleChips = middleIdxs.map(i => `
     <button class="offset-chip ${i === offsetIdx ? 'active' : ''}"
-      onclick="setOffset(${i})">${o.label}</button>
-  `).join('');
+      onclick="setOffset(${i})">${OFFSETS[i].label}</button>`).join('');
+  // now chip (right, wide) — index 0
+  const nowChip = `<button class="offset-chip offset-chip-wide ${0 === offsetIdx ? 'active' : ''}"
+    onclick="setOffset(0)" style="min-width:52px;text-align:center">now</button>`;
+  or.innerHTML = scrubChip + middleChips + nowChip;
 
   // In progress
   const inProgress = today.filter(p => pillIsVisible(p, now));
@@ -545,6 +560,11 @@ function render() {
 }
 
 function setOffset(i) { offsetIdx = i; render(); }
+function setScrubbed(ts) {
+  scrubbedTs = ts;
+  offsetIdx  = -1; // special index = scrubber mode
+  render();
+}
 
 function pillCardHTML(pill, now) {
   const def = MEDS[pill.type];
@@ -614,6 +634,5 @@ if ('serviceWorker' in navigator) {
 }
 
 </script>
-
 </body>
 </html>
