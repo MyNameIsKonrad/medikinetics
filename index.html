@@ -65,14 +65,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .dose-btn-name { font-size: 16px; font-weight: 700; letter-spacing: .04em; }
 .dose-btn-sub { font-family: 'DM Mono', monospace; font-size: 9px; opacity: .6; }
 /* Offset chips */
-.offset-row { display: flex; gap: 5px; flex-wrap: nowrap; overflow-x: auto; align-items: center; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.offset-row { display: flex; gap: 6px; flex-wrap: wrap; }
 .offset-chip { font-family: 'DM Mono', monospace; font-size: 11px; padding: 5px 10px;
   border-radius: 20px; border: 1px solid var(--border); background: transparent;
   color: var(--dim); cursor: pointer; touch-action: manipulation; transition: all .15s; }
 .offset-chip.active { border-color: var(--ir); background: rgba(91,184,245,.12); color: var(--ir); }
-.offset-chip-wide { flex-shrink: 0; }
-.offset-chip-inactive { opacity: .3; cursor: default; }
-.offset-row::-webkit-scrollbar { display: none; }
 /* Card */
 .pill-card { background: var(--surface); border: 1px solid var(--border);
   border-radius: 14px; padding: 16px; margin-bottom: 10px; }
@@ -279,8 +276,7 @@ function pillIsVisible(pill, now) {
 
 // ── State ─────────────────────────────────────────────────
 let pills = [];
-let offsetIdx    = 0;
-let scrubbedTs  = null; // timestamp set by scrubber, null = inactive
+let offsetIdx = 0;
 let undoItem  = null;
 let undoTimer = null;
 let curveCache = null; // { pills_hash, data, win }
@@ -302,11 +298,10 @@ function savePills() {
 }
 
 function logPill(type) {
-  const takenAt = offsetIdx === -1 && scrubbedTs ? scrubbedTs : Date.now() - OFFSETS[offsetIdx].ms;
+  const takenAt = Date.now() - OFFSETS[offsetIdx].ms;
   pills = [{ id: Date.now(), type, takenAt }, ...pills];
   savePills();
   offsetIdx = 0;
-  scrubbedTs = null;
   render();
 }
 
@@ -462,8 +457,6 @@ function renderChart(today, now) {
     tooltip.style.top  = (clientY - rect.top - 60) + 'px';
     tooltip.style.display = 'block';
     if (hideTimer) clearTimeout(hideTimer);
-    // Write scrubbed timestamp — only past times make sense for logging
-    if (closest.ts <= Date.now()) setScrubbed(closest.ts);
   }
 
   function hideTooltip(delay = 0) {
@@ -522,20 +515,10 @@ function render() {
 
   // Offset chips
   const or = document.getElementById('offset-row');
-  const scrubLabel = scrubbedTs ? fmt(scrubbedTs) : '·  ·';
-  const scrubActive = offsetIdx === -1;
-  // scrubber chip (left, wide, inactive until scrubbed)
-  const scrubChip = `<button class="offset-chip offset-chip-wide ${scrubActive ? 'active' : ''} ${!scrubbedTs ? 'offset-chip-inactive' : ''}"
-    onclick="${scrubbedTs ? 'setScrubbed(' + scrubbedTs + ')' : ''}" style="min-width:64px;text-align:center">${scrubLabel}</button>`;
-  // middle chips: -6h(5) -3h(4) -2h(3) -1h(2) -30m(1) — reversed for left-to-right reading
-  const middleIdxs = [5,4,3,2,1];
-  const middleChips = middleIdxs.map(i => `
+  or.innerHTML = OFFSETS.map((o, i) => `
     <button class="offset-chip ${i === offsetIdx ? 'active' : ''}"
-      onclick="setOffset(${i})">${OFFSETS[i].label}</button>`).join('');
-  // now chip (right, wide) — index 0
-  const nowChip = `<button class="offset-chip offset-chip-wide ${0 === offsetIdx ? 'active' : ''}"
-    onclick="setOffset(0)" style="min-width:52px;text-align:center">now</button>`;
-  or.innerHTML = scrubChip + middleChips + nowChip;
+      onclick="setOffset(${i})">${o.label}</button>
+  `).join('');
 
   // In progress
   const inProgress = today.filter(p => pillIsVisible(p, now));
@@ -562,11 +545,6 @@ function render() {
 }
 
 function setOffset(i) { offsetIdx = i; render(); }
-function setScrubbed(ts) {
-  scrubbedTs = ts;
-  offsetIdx  = -1; // special index = scrubber mode
-  render();
-}
 
 function pillCardHTML(pill, now) {
   const def = MEDS[pill.type];
@@ -626,12 +604,11 @@ pills = loadPills();
 render();
 setInterval(render, 30000);
 
-// ── Service Worker Registration ───────────────────────────
+// ── Service Worker ────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
-      .then(r => console.log('Medikinetics SW registered', r.scope))
-      .catch(e => console.error('Medikinetics SW failed', e));
+      .catch(e => console.error('SW failed', e));
   });
 }
 
