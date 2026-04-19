@@ -430,6 +430,7 @@ function renderChart(today, now) {
       if (x < XPAD + 10 || x > W - 10) return '';
       return `<text x="${x}" y="${CH + 14}" font-family="'DM Mono',monospace" font-size="9" fill="#3a5070" text-anchor="middle">${fmt(ts)}</text>`;
     }).join('')}
+    <g id="dot-layer"></g>
     <line id="chart-crosshair" x1="-999" y1="0" x2="-999" y2="${CH}"
       stroke="rgba(220,232,245,0.25)" stroke-width="1"/>
     <rect x="${XPAD}" y="0" width="${CW}" height="${CH}" fill="transparent" id="chart-hit"/>
@@ -451,6 +452,14 @@ function renderChart(today, now) {
     const cx = XPAD + fracX * CW;
     crosshair.setAttribute('x1', cx);
     crosshair.setAttribute('x2', cx);
+    // intersection dots
+    const dotLayer = document.getElementById('dot-layer');
+    if (dotLayer) {
+      dotLayer.innerHTML = today.map(pill => {
+        const v = concAtTime([pill], closest.ts);
+        return `<circle cx="${cx}" cy="${yS(v)}" r="3" fill="${MEDS[pill.type].color}" stroke="var(--bg)" stroke-width="1.5"/>`;
+      }).join('');
+    }
     // tooltip
     document.getElementById('tt-time').textContent = fmt(closest.ts);
     document.getElementById('tt-val').textContent  = closest.total.toFixed(1);
@@ -467,6 +476,8 @@ function renderChart(today, now) {
       tooltip.style.display = 'none';
       crosshair.setAttribute('x1', '-999');
       crosshair.setAttribute('x2', '-999');
+      const dotLayer = document.getElementById('dot-layer');
+      if (dotLayer) dotLayer.innerHTML = '';
     }, delay);
   }
 
