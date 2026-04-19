@@ -85,7 +85,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .phase-tag { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim); margin-left: 5px; }
 .phase-time { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); }
 .track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
-.fill-bar { height: 100%; border-radius: 3px; transition: width 30s linear; }
+.fill-bar { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
 /* Log */
 .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .log-row { display: flex; align-items: center; gap: 10px;
@@ -275,11 +275,12 @@ function pillIsVisible(pill, now) {
 }
 
 // ── State ─────────────────────────────────────────────────
-let pills = [];
+let pills     = [];
 let offsetIdx = 0;
 let undoItem  = null;
 let undoTimer = null;
-let curveCache = null; // { pills_hash, data, win }
+let hideTimer = null;
+let _lastLog  = 0;
 
 function loadPills() {
   try {
@@ -298,8 +299,11 @@ function savePills() {
 }
 
 function logPill(type) {
-  const takenAt = Date.now() - OFFSETS[offsetIdx].ms;
-  pills = [{ id: Date.now(), type, takenAt }, ...pills];
+  const now = Date.now();
+  if (now - _lastLog < 800) return;
+  _lastLog = now;
+  const takenAt = now - OFFSETS[offsetIdx].ms;
+  pills = [{ id: now, type, takenAt }, ...pills];
   savePills();
   offsetIdx = 0;
   render();
@@ -435,8 +439,6 @@ function renderChart(today, now) {
   const hit      = document.getElementById('chart-hit');
   const tooltip  = document.getElementById('chart-tooltip');
   const crosshair = document.getElementById('chart-crosshair');
-  let hideTimer  = null;
-
   function showTooltip(clientX, clientY) {
     if (!chartData || !chartWin) return;
     const rect = svg.getBoundingClientRect();
@@ -454,7 +456,7 @@ function renderChart(today, now) {
     document.getElementById('tt-val').textContent  = closest.total.toFixed(1);
     const tLeft = Math.min(clientX - rect.left + 8, rect.width - 120);
     tooltip.style.left = tLeft + 'px';
-    tooltip.style.top  = (clientY - rect.top - 60) + 'px';
+    tooltip.style.top  = Math.max(4, clientY - rect.top - 60) + 'px';
     tooltip.style.display = 'block';
     if (hideTimer) clearTimeout(hideTimer);
   }
