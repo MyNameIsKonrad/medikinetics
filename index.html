@@ -279,7 +279,8 @@ function durStr(ms) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 function pillIsVisible(pill, now) {
-  return concAtTime([pill], now) >= MEDS[pill.type].totalMg * 0.1;
+  const lp = MEDS[pill.type].phases.at(-1);
+  return now < phaseEnd(lp, pill.takenAt) || concAtTime([pill], now) >= MEDS[pill.type].totalMg * 0.1;
 }
 
 // ── State ─────────────────────────────────────────────────
