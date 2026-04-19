@@ -246,7 +246,7 @@ function getCurveWindow(pills, now) {
   }));
   return {
     start: Math.min(earliest - 45 * 60000, now - 60 * 60000),
-    end:   Math.max(latest + 60 * 60000, now + 90 * 60000),
+    end:   Math.max(latest + 4 * 3600000, now + 90 * 60000),
   };
 }
 
