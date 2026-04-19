@@ -260,7 +260,7 @@ function getCurveWindow(pills, now) {
 }
 
 // ── Helpers ───────────────────────────────────────────────
-const fmt = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const fmt = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 const phaseStart = (ph, t) => t + ph.offsetHours * 3600000;
 const phaseEnd   = (ph, t) => phaseStart(ph, t) + ph.durationHours * 3600000;
 
@@ -279,8 +279,7 @@ function durStr(ms) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 function pillIsVisible(pill, now) {
-  const lp = MEDS[pill.type].phases.at(-1);
-  return now < phaseEnd(lp, pill.takenAt);
+  return concAtTime([pill], now) >= MEDS[pill.type].totalMg * 0.1;
 }
 
 // ── State ─────────────────────────────────────────────────
@@ -312,9 +311,10 @@ function logPill(type) {
   const now = Date.now();
   if (now - _lastLog < 800) return;
   _lastLog = now;
-  const takenAt = offsetIdx === SCRUB_IDX && scrubTime
+  const rawAt = offsetIdx === SCRUB_IDX && scrubTime
     ? scrubTime.ts
     : now - OFFSETS[offsetIdx].ms;
+  const takenAt = Math.min(now, rawAt);
   pills = [{ id: now, type, takenAt }, ...pills];
   savePills();
   offsetIdx = OFFSETS.length - 1;
@@ -384,9 +384,10 @@ function renderChart(today, now) {
   const maxConc = Math.max(...data.map(d => d.total), 5);
   const yS = v  => CH - (v / (maxConc * 1.2)) * CH;
 
-  // X ticks every 2h
+  // X ticks — step adapts to window width
   const xTicks = [];
-  const step = 2 * 3600000;
+  const winDur = win.end - win.start;
+  const step = winDur > 16 * 3600000 ? 4 * 3600000 : winDur > 8 * 3600000 ? 2 * 3600000 : 3600000;
   const tStart = Math.ceil(win.start / step) * step;
   for (let t = tStart; t <= win.end; t += step) xTicks.push(t);
 
@@ -466,14 +467,12 @@ function renderChart(today, now) {
     const cx = XPAD + fracX * CW;
     crosshair.setAttribute('x1', cx);
     crosshair.setAttribute('x2', cx);
-    // scrub chip — write time without re-render
-    if (closest.ts <= Date.now()) {
-      scrubTime = { ts: closest.ts, label: fmt(closest.ts) };
-      const scrubChip = document.querySelector('#offset-row .offset-chip');
-      if (scrubChip) {
-        scrubChip.textContent = scrubTime.label;
-        scrubChip.classList.remove('offset-chip-unset');
-      }
+    // scrub chip — write time without re-render (past or future, for inspection)
+    scrubTime = { ts: closest.ts, label: fmt(closest.ts) };
+    const scrubChip = document.querySelector('#offset-row .offset-chip');
+    if (scrubChip) {
+      scrubChip.textContent = scrubTime.label;
+      scrubChip.classList.remove('offset-chip-unset');
     }
     // intersection dots
     const dotLayer = document.getElementById('dot-layer');
@@ -481,7 +480,8 @@ function renderChart(today, now) {
       dotLayer.innerHTML = today.map(pill => {
         const v = concAtTime([pill], closest.ts);
         return `<circle cx="${cx}" cy="${yS(v)}" r="3" fill="${MEDS[pill.type].color}" stroke="var(--bg)" stroke-width="1.5"/>`;
-      }).join('');
+      }).join('') +
+      `<circle cx="${cx}" cy="${yS(closest.total)}" r="4" fill="none" stroke="#5bb8f5" stroke-width="1.5"/>`;
     }
     // tooltip
     document.getElementById('tt-time').textContent = fmt(closest.ts);
@@ -587,41 +587,53 @@ function setOffset(i) {
 }
 
 function selectScrubChip() {
-  const row = document.getElementById('time-input-row');
-  if (!scrubTime) {
-    offsetIdx = SCRUB_IDX;
-    row.style.display = 'flex';
-    render();
-  } else if (offsetIdx === SCRUB_IDX) {
-    row.style.display = row.style.display === 'flex' ? 'none' : 'flex';
-  } else {
-    offsetIdx = SCRUB_IDX;
-    row.style.display = 'none';
-    render();
-  }
+  offsetIdx = SCRUB_IDX;
+  document.querySelectorAll('#offset-row .offset-chip').forEach((btn, i) => {
+    btn.classList.toggle('active', i === 0);
+  });
+  document.getElementById('time-input-row').style.display = 'flex';
 }
 
 function pillCardHTML(pill, now) {
-  const def = MEDS[pill.type];
-  const phases = def.phases.map((ph, i) => {
-    const st  = phaseStatus(ph, pill.takenAt, now);
-    const pct = phasePct(ph, pill.takenAt, now);
-    const left  = durStr(phaseEnd(ph, pill.takenAt) - now);
-    const until = durStr(phaseStart(ph, pill.takenAt) - now);
-    const color = st === 'active' ? def.color : st === 'pending' ? '#4a6080' : '#2d3f57';
-    const fillBg = st === 'active' ? def.color : '#1a2235';
-    const tag  = i > 0 ? `<span class="phase-tag">+${ph.offsetHours}h release</span>` : '';
-    const time = st === 'active' && left   ? `${left} left`
-               : st === 'pending' && until ? `in ${until}` : 'done';
-    return `
+  const def     = MEDS[pill.type];
+  const allDone = def.phases.every(ph => phaseStatus(ph, pill.takenAt, now) === 'done');
+
+  let body;
+  if (allDone) {
+    const conc      = concAtTime([pill], now);
+    const pct       = Math.min(100, (conc / def.totalMg) * 100);
+    const threshold = def.totalMg * 0.1;
+    const minsLeft  = conc > threshold ? Math.round((Math.log(conc / threshold) / KE) * 60) : 0;
+    const timeStr   = durStr(minsLeft * 60000) ?? '—';
+    body = `
       <div class="phase-row">
         <div class="phase-top">
-          <span class="phase-mg" style="color:${color}">${ph.mg} mg${tag}</span>
-          <span class="phase-time">${time}</span>
+          <span class="phase-mg" style="color:var(--soft)">clearing · ${conc.toFixed(1)} mg eq</span>
+          <span class="phase-time">${timeStr} left</span>
         </div>
-        <div class="track"><div class="fill-bar" style="width:${pct}%;background:${fillBg}"></div></div>
+        <div class="track"><div class="fill-bar" style="width:${pct}%;background:var(--soft)"></div></div>
       </div>`;
-  }).join('');
+  } else {
+    body = def.phases.map((ph, i) => {
+      const st  = phaseStatus(ph, pill.takenAt, now);
+      const pct = phasePct(ph, pill.takenAt, now);
+      const left  = durStr(phaseEnd(ph, pill.takenAt) - now);
+      const until = durStr(phaseStart(ph, pill.takenAt) - now);
+      const color  = st === 'active' ? def.color : st === 'pending' ? '#4a6080' : '#2d3f57';
+      const fillBg = st === 'active' ? def.color : '#1a2235';
+      const tag  = i > 0 ? `<span class="phase-tag">+${ph.offsetHours}h release</span>` : '';
+      const time = st === 'active' && left   ? `${left} left`
+                 : st === 'pending' && until ? `in ${until}` : 'done';
+      return `
+        <div class="phase-row">
+          <div class="phase-top">
+            <span class="phase-mg" style="color:${color}">${ph.mg} mg${tag}</span>
+            <span class="phase-time">${time}</span>
+          </div>
+          <div class="track"><div class="fill-bar" style="width:${pct}%;background:${fillBg}"></div></div>
+        </div>`;
+    }).join('');
+  }
 
   return `
     <div class="pill-card">
@@ -633,17 +645,19 @@ function pillCardHTML(pill, now) {
         </div>
         <button class="x-btn" onclick="removePill(${pill.id})">×</button>
       </div>
-      ${phases}
+      ${body}
     </div>`;
 }
 
 function logRowHTML(pill, now) {
-  const def     = MEDS[pill.type];
-  const visible = pillIsVisible(pill, now);
-  const conc    = concAtTime([pill], now);
-  const rising  = conc < 2 && (now - pill.takenAt) < 90 * 60000;
-  const st      = !visible ? 'done' : rising ? '↑ rising' : 'active';
-  const sc      = !visible ? '#2d3f57' : '#4ecb8d';
+  const def      = MEDS[pill.type];
+  const visible  = pillIsVisible(pill, now);
+  const conc     = concAtTime([pill], now);
+  const rising   = conc < 2 && (now - pill.takenAt) < 90 * 60000;
+  const allDone  = def.phases.every(ph => phaseStatus(ph, pill.takenAt, now) === 'done');
+  const clearing = visible && allDone;
+  const st = !visible ? 'done' : rising ? '↑ rising' : clearing ? 'clearing' : 'active';
+  const sc = !visible ? '#2d3f57' : clearing ? '#a07840' : '#4ecb8d';
   return `
     <div class="log-row ${visible ? '' : 'expired'}">
       <span class="log-type" style="color:${def.color}">${def.label}</span>
