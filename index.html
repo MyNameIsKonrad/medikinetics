@@ -65,11 +65,16 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .dose-btn-name { font-size: 16px; font-weight: 700; letter-spacing: .04em; }
 .dose-btn-sub { font-family: 'DM Mono', monospace; font-size: 9px; opacity: .6; }
 /* Offset chips */
-.offset-row { display: flex; gap: 6px; flex-wrap: wrap; }
-.offset-chip { font-family: 'DM Mono', monospace; font-size: 11px; padding: 5px 10px;
-  border-radius: 20px; border: 1px solid var(--border); background: transparent;
+.offset-row { display: flex; gap: 6px; flex-wrap: nowrap; }
+.offset-chip { flex: 1; font-family: 'DM Mono', monospace; font-size: 11px; padding: 5px 4px;
+  border-radius: 20px; border: 1px solid var(--border); background: transparent; text-align: center;
   color: var(--dim); cursor: pointer; touch-action: manipulation; transition: all .15s; }
 .offset-chip.active { border-color: var(--ir); background: rgba(91,184,245,.12); color: var(--ir); }
+.offset-chip-unset { opacity: .4; }
+.time-input-row { display: none; align-items: center; gap: 8px; margin-top: 8px; }
+.manual-time-input { font-family: 'DM Mono', monospace; font-size: 12px;
+  background: transparent; border: 1px solid var(--ir); border-radius: 8px;
+  color: var(--text); padding: 5px 10px; width: 120px; color-scheme: dark; }
 /* Card */
 .pill-card { background: var(--surface); border: 1px solid var(--border);
   border-radius: 14px; padding: 16px; margin-bottom: 10px; }
@@ -85,7 +90,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .phase-tag { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim); margin-left: 5px; }
 .phase-time { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); }
 .track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
-.fill-bar { height: 100%; border-radius: 3px; transition: width 30s linear; }
+.fill-bar { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
 /* Log */
 .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .log-row { display: flex; align-items: center; gap: 10px;
@@ -155,6 +160,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
     <div class="section-label">log dose</div>
     <div class="dose-grid" id="dose-grid"></div>
     <div class="offset-row" id="offset-row"></div>
+    <div class="time-input-row" id="time-input-row">
+      <input type="time" id="manual-time-input" class="manual-time-input">
+      <span class="section-label" style="margin:0">set time</span>
+    </div>
   </div>
 
   <div class="section" id="section-progress" style="display:none">
@@ -191,13 +200,13 @@ const MEDS = {
 };
 
 const OFFSETS = [
-  { label: 'now',  ms: 0 },
   { label: '-30m', ms: 30 * 60000 },
   { label: '-1h',  ms: 1 * 3600000 },
   { label: '-2h',  ms: 2 * 3600000 },
   { label: '-3h',  ms: 3 * 3600000 },
-  { label: '-6h',  ms: 6 * 3600000 },
+  { label: 'now',  ms: 0 },
 ];
+const SCRUB_IDX = -1;
 
 // ── PK model ─────────────────────────────────────────────
 const KA_REF = 2.0, KE = 0.347;
@@ -246,7 +255,7 @@ function getCurveWindow(pills, now) {
   }));
   return {
     start: Math.min(earliest - 45 * 60000, now - 60 * 60000),
-    end:   Math.max(latest + 60 * 60000, now + 90 * 60000),
+    end:   Math.max(latest + 4 * 3600000, now + 90 * 60000),
   };
 }
 
@@ -275,11 +284,13 @@ function pillIsVisible(pill, now) {
 }
 
 // ── State ─────────────────────────────────────────────────
-let pills = [];
-let offsetIdx = 0;
+let pills     = [];
+let offsetIdx = OFFSETS.length - 1; // default: 'now'
+let scrubTime = null; // { ts, label } — set by chart scrub or manual entry
 let undoItem  = null;
 let undoTimer = null;
-let curveCache = null; // { pills_hash, data, win }
+let hideTimer = null;
+let _lastLog  = 0;
 
 function loadPills() {
   try {
@@ -298,10 +309,17 @@ function savePills() {
 }
 
 function logPill(type) {
-  const takenAt = Date.now() - OFFSETS[offsetIdx].ms;
-  pills = [{ id: Date.now(), type, takenAt }, ...pills];
+  const now = Date.now();
+  if (now - _lastLog < 800) return;
+  _lastLog = now;
+  const takenAt = offsetIdx === SCRUB_IDX && scrubTime
+    ? scrubTime.ts
+    : now - OFFSETS[offsetIdx].ms;
+  pills = [{ id: now, type, takenAt }, ...pills];
   savePills();
-  offsetIdx = 0;
+  offsetIdx = OFFSETS.length - 1;
+  scrubTime = null;
+  document.getElementById('time-input-row').style.display = 'none';
   render();
 }
 
@@ -426,6 +444,7 @@ function renderChart(today, now) {
       if (x < XPAD + 10 || x > W - 10) return '';
       return `<text x="${x}" y="${CH + 14}" font-family="'DM Mono',monospace" font-size="9" fill="#3a5070" text-anchor="middle">${fmt(ts)}</text>`;
     }).join('')}
+    <g id="dot-layer"></g>
     <line id="chart-crosshair" x1="-999" y1="0" x2="-999" y2="${CH}"
       stroke="rgba(220,232,245,0.25)" stroke-width="1"/>
     <rect x="${XPAD}" y="0" width="${CW}" height="${CH}" fill="transparent" id="chart-hit"/>
@@ -435,8 +454,6 @@ function renderChart(today, now) {
   const hit      = document.getElementById('chart-hit');
   const tooltip  = document.getElementById('chart-tooltip');
   const crosshair = document.getElementById('chart-crosshair');
-  let hideTimer  = null;
-
   function showTooltip(clientX, clientY) {
     if (!chartData || !chartWin) return;
     const rect = svg.getBoundingClientRect();
@@ -449,12 +466,29 @@ function renderChart(today, now) {
     const cx = XPAD + fracX * CW;
     crosshair.setAttribute('x1', cx);
     crosshair.setAttribute('x2', cx);
+    // scrub chip — write time without re-render
+    if (closest.ts <= Date.now()) {
+      scrubTime = { ts: closest.ts, label: fmt(closest.ts) };
+      const scrubChip = document.querySelector('#offset-row .offset-chip');
+      if (scrubChip) {
+        scrubChip.textContent = scrubTime.label;
+        scrubChip.classList.remove('offset-chip-unset');
+      }
+    }
+    // intersection dots
+    const dotLayer = document.getElementById('dot-layer');
+    if (dotLayer) {
+      dotLayer.innerHTML = today.map(pill => {
+        const v = concAtTime([pill], closest.ts);
+        return `<circle cx="${cx}" cy="${yS(v)}" r="3" fill="${MEDS[pill.type].color}" stroke="var(--bg)" stroke-width="1.5"/>`;
+      }).join('');
+    }
     // tooltip
     document.getElementById('tt-time').textContent = fmt(closest.ts);
     document.getElementById('tt-val').textContent  = closest.total.toFixed(1);
     const tLeft = Math.min(clientX - rect.left + 8, rect.width - 120);
     tooltip.style.left = tLeft + 'px';
-    tooltip.style.top  = (clientY - rect.top - 60) + 'px';
+    tooltip.style.top  = Math.max(4, clientY - rect.top - 60) + 'px';
     tooltip.style.display = 'block';
     if (hideTimer) clearTimeout(hideTimer);
   }
@@ -465,6 +499,8 @@ function renderChart(today, now) {
       tooltip.style.display = 'none';
       crosshair.setAttribute('x1', '-999');
       crosshair.setAttribute('x2', '-999');
+      const dotLayer = document.getElementById('dot-layer');
+      if (dotLayer) dotLayer.innerHTML = '';
     }, delay);
   }
 
@@ -515,10 +551,10 @@ function render() {
 
   // Offset chips
   const or = document.getElementById('offset-row');
-  or.innerHTML = OFFSETS.map((o, i) => `
-    <button class="offset-chip ${i === offsetIdx ? 'active' : ''}"
-      onclick="setOffset(${i})">${o.label}</button>
-  `).join('');
+  const scrubLabel = scrubTime ? scrubTime.label : '·  ·';
+  or.innerHTML =
+    `<button class="offset-chip ${offsetIdx === SCRUB_IDX ? 'active' : ''} ${!scrubTime ? 'offset-chip-unset' : ''}" onclick="selectScrubChip()">${scrubLabel}</button>` +
+    OFFSETS.map((o, i) => `<button class="offset-chip ${i === offsetIdx ? 'active' : ''}" onclick="setOffset(${i})">${o.label}</button>`).join('');
 
   // In progress
   const inProgress = today.filter(p => pillIsVisible(p, now));
@@ -544,7 +580,26 @@ function render() {
   document.getElementById('empty-state').style.display = today.length ? 'none' : '';
 }
 
-function setOffset(i) { offsetIdx = i; render(); }
+function setOffset(i) {
+  offsetIdx = i;
+  document.getElementById('time-input-row').style.display = 'none';
+  render();
+}
+
+function selectScrubChip() {
+  const row = document.getElementById('time-input-row');
+  if (!scrubTime) {
+    offsetIdx = SCRUB_IDX;
+    row.style.display = 'flex';
+    render();
+  } else if (offsetIdx === SCRUB_IDX) {
+    row.style.display = row.style.display === 'flex' ? 'none' : 'flex';
+  } else {
+    offsetIdx = SCRUB_IDX;
+    row.style.display = 'none';
+    render();
+  }
+}
 
 function pillCardHTML(pill, now) {
   const def = MEDS[pill.type];
@@ -603,6 +658,20 @@ function logRowHTML(pill, now) {
 pills = loadPills();
 render();
 setInterval(render, 30000);
+
+document.getElementById('manual-time-input').addEventListener('change', e => {
+  const val = e.target.value; // "HH:MM"
+  if (!val) return;
+  const [h, m] = val.split(':').map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  // if the resulting time is in the future, assume yesterday
+  const ts = d.getTime() > Date.now() ? d.getTime() - 86400000 : d.getTime();
+  scrubTime = { ts, label: val };
+  offsetIdx = SCRUB_IDX;
+  document.getElementById('time-input-row').style.display = 'none';
+  render();
+});
 
 // ── Service Worker ────────────────────────────────────────
 if ('serviceWorker' in navigator) {
