@@ -174,7 +174,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   <div class="section" id="section-log" style="display:none">
     <div class="log-header">
       <div class="section-label" style="margin-bottom:0">log (24h)</div>
-      <button class="clear-btn" onclick="clearOld()">clear old</button>
+      <button class="clear-btn" id="clear-old-btn">clear old</button>
     </div>
     <div id="log-container"></div>
   </div>
@@ -184,7 +184,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 
 <div id="undo-toast">
   <span id="undo-msg"></span>
-  <button id="undo-btn" onclick="undoRemove()">UNDO</button>
+  <button id="undo-btn">UNDO</button>
 </div>
 
 <script>
@@ -336,7 +336,7 @@ function removePill(id) {
   render();
 }
 
-function undoRemove() {
+const undoRemove = () => {
   if (!undoItem) return;
   clearTimeout(undoTimer);
   pills = [undoItem, ...pills].sort((a, b) => b.takenAt - a.takenAt);
@@ -344,14 +344,14 @@ function undoRemove() {
   undoItem = null;
   hideUndo();
   render();
-}
+};
 
-function clearOld() {
+const clearOld = () => {
   const cutoff = Date.now() - 24 * 3600000;
   pills = pills.filter(p => p.takenAt > cutoff);
   savePills();
   render();
-}
+};
 
 function showUndo(pill) {
   document.getElementById('undo-msg').textContent =
@@ -554,8 +554,8 @@ function render() {
   const or = document.getElementById('offset-row');
   const scrubLabel = scrubTime ? scrubTime.label : '·  ·';
   or.innerHTML =
-    `<button class="offset-chip ${offsetIdx === SCRUB_IDX ? 'active' : ''} ${!scrubTime ? 'offset-chip-unset' : ''}" onclick="selectScrubChip()">${scrubLabel}</button>` +
-    OFFSETS.map((o, i) => `<button class="offset-chip ${i === offsetIdx ? 'active' : ''}" onclick="setOffset(${i})">${o.label}</button>`).join('');
+    `<button class="offset-chip ${offsetIdx === SCRUB_IDX ? 'active' : ''} ${!scrubTime ? 'offset-chip-unset' : ''}" data-action="select-scrub">${scrubLabel}</button>` +
+    OFFSETS.map((o, i) => `<button class="offset-chip ${i === offsetIdx ? 'active' : ''}" data-action="set-offset" data-offset-index="${i}">${o.label}</button>`).join('');
 
   // In progress
   const inProgress = today.filter(p => pillIsVisible(p, now));
@@ -581,19 +581,19 @@ function render() {
   document.getElementById('empty-state').style.display = today.length ? 'none' : '';
 }
 
-function setOffset(i) {
+const setOffset = (i) => {
   offsetIdx = i;
   document.getElementById('time-input-row').style.display = 'none';
   render();
-}
+};
 
-function selectScrubChip() {
+const selectScrubChip = () => {
   offsetIdx = SCRUB_IDX;
   document.querySelectorAll('#offset-row .offset-chip').forEach((btn, i) => {
     btn.classList.toggle('active', i === 0);
   });
   document.getElementById('time-input-row').style.display = 'flex';
-}
+};
 
 function pillCardHTML(pill, now) {
   const def     = MEDS[pill.type];
@@ -644,7 +644,7 @@ function pillCardHTML(pill, now) {
           <span class="card-mg">${def.totalMg} mg</span>
           <span class="card-time">${fmt(pill.takenAt)}</span>
         </div>
-        <button class="x-btn" onclick="removePill(${pill.id})">×</button>
+        <button class="x-btn" data-action="remove-pill" data-pill-id="${pill.id}">×</button>
       </div>
       ${body}
     </div>`;
@@ -665,7 +665,7 @@ function logRowHTML(pill, now) {
       <span class="log-mg">${def.totalMg} mg</span>
       <span class="log-t">${fmt(pill.takenAt)}</span>
       <span class="log-status" style="color:${sc}">${st}</span>
-      <button class="x-btn" onclick="removePill(${pill.id})">×</button>
+      <button class="x-btn" data-action="remove-pill" data-pill-id="${pill.id}">×</button>
     </div>`;
 }
 
@@ -687,6 +687,32 @@ document.getElementById('manual-time-input').addEventListener('change', e => {
   document.getElementById('time-input-row').style.display = 'none';
   render();
 });
+
+document.getElementById('clear-old-btn').addEventListener('click', clearOld);
+document.getElementById('undo-btn').addEventListener('click', undoRemove);
+
+document.getElementById('offset-row').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+  if (btn.dataset.action === 'select-scrub') {
+    selectScrubChip();
+    return;
+  }
+  if (btn.dataset.action === 'set-offset') {
+    const idx = Number(btn.dataset.offsetIndex);
+    if (!Number.isNaN(idx)) setOffset(idx);
+  }
+});
+
+const handleRemovePillClick = (e) => {
+  const btn = e.target.closest('button[data-action="remove-pill"]');
+  if (!btn) return;
+  const pillId = Number(btn.dataset.pillId);
+  if (!Number.isNaN(pillId)) removePill(pillId);
+};
+
+document.getElementById('log-container').addEventListener('click', handleRemovePillClick);
+document.getElementById('cards-container').addEventListener('click', handleRemovePillClick);
 
 // ── Service Worker ────────────────────────────────────────
 if ('serviceWorker' in navigator) {
