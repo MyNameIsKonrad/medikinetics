@@ -526,11 +526,12 @@ function render() {
   const now   = Date.now();
   const dayStart = startOfLocalDay(now);
   const today = pills.filter(p => p.takenAt >= dayStart && p.takenAt <= now);
+  const relevant = pills.filter(p => p.takenAt <= now && pillIsVisible(p, now));
 
   // Stats
   const taken    = today.reduce((s, p) => s + MEDS[p.type].totalMg, 0);
-  const inSystem = concAtTime(today, now);
-  const isRising = inSystem < 2 && today.some(p => (now - p.takenAt) < 90 * 60000);
+  const inSystem = concAtTime(relevant, now);
+  const isRising = inSystem < 2 && relevant.some(p => (now - p.takenAt) < 90 * 60000);
 
   document.getElementById('val-taken').textContent  = taken;
   document.getElementById('val-system').textContent = isRising ? '—' : inSystem.toFixed(1);
@@ -563,7 +564,7 @@ function render() {
     OFFSETS.map((o, i) => `<button class="offset-chip ${i === offsetIdx ? 'active' : ''}" onclick="setOffset(${i})">${o.label}</button>`).join('');
 
   // In progress
-  const inProgress = today.filter(p => pillIsVisible(p, now));
+  const inProgress = relevant;
   const secP = document.getElementById('section-progress');
   const cc   = document.getElementById('cards-container');
   if (inProgress.length) {
@@ -583,7 +584,7 @@ function render() {
     secL.style.display = 'none';
   }
 
-  document.getElementById('empty-state').style.display = today.length ? 'none' : '';
+  document.getElementById('empty-state').style.display = (today.length || inProgress.length) ? 'none' : '';
 }
 
 function setOffset(i) {
