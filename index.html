@@ -173,7 +173,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 
   <div class="section" id="section-log" style="display:none">
     <div class="log-header">
-      <div class="section-label" style="margin-bottom:0">log (24h)</div>
+      <div class="section-label" style="margin-bottom:0">log (today)</div>
       <button class="clear-btn" onclick="clearOld()">clear old</button>
     </div>
     <div id="log-container"></div>
@@ -246,10 +246,9 @@ function buildCurve(pills, wStart, wEnd) {
 }
 
 function getCurveWindow(pills, now) {
-  const today = pills.filter(p => p.takenAt > now - 24 * 3600000);
-  if (!today.length) return { start: now - 1800000, end: now + 8 * 3600000 };
-  const earliest = Math.min(...today.map(p => p.takenAt));
-  const latest   = Math.max(...today.map(p => {
+  if (!pills.length) return { start: now - 1800000, end: now + 8 * 3600000 };
+  const earliest = Math.min(...pills.map(p => p.takenAt));
+  const latest   = Math.max(...pills.map(p => {
     const lp = MEDS[p.type].phases.at(-1);
     return p.takenAt + (lp.offsetHours + lp.durationHours) * 3600000;
   }));
@@ -277,6 +276,11 @@ function durStr(ms) {
   if (ms <= 0) return null;
   const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+function startOfLocalDay(ts = Date.now()) {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
 }
 function pillIsVisible(pill, now) {
   const lp = MEDS[pill.type].phases.at(-1);
@@ -347,7 +351,7 @@ function undoRemove() {
 }
 
 function clearOld() {
-  const cutoff = Date.now() - 24 * 3600000;
+  const cutoff = startOfLocalDay();
   pills = pills.filter(p => p.takenAt > cutoff);
   savePills();
   render();
@@ -520,7 +524,8 @@ function renderChart(today, now) {
 // ── Render ────────────────────────────────────────────────
 function render() {
   const now   = Date.now();
-  const today = pills.filter(p => p.takenAt > now - 24 * 3600000);
+  const dayStart = startOfLocalDay(now);
+  const today = pills.filter(p => p.takenAt >= dayStart && p.takenAt <= now);
 
   // Stats
   const taken    = today.reduce((s, p) => s + MEDS[p.type].totalMg, 0);
@@ -678,11 +683,13 @@ document.getElementById('manual-time-input').addEventListener('change', e => {
   const val = e.target.value; // "HH:MM"
   if (!val) return;
   const [h, m] = val.split(':').map(Number);
-  const d = new Date();
-  d.setHours(h, m, 0, 0);
-  // if the resulting time is in the future, assume yesterday
-  const ts = d.getTime() > Date.now() ? d.getTime() - 86400000 : d.getTime();
-  scrubTime = { ts, label: val };
+  const now = Date.now();
+  const d = new Date(now);
+  const hasValidTime = Number.isInteger(h) && Number.isInteger(m) && h >= 0 && h < 24 && m >= 0 && m < 60;
+  if (hasValidTime) d.setHours(h, m, 0, 0);
+  // "today" semantics: keep manual times within local midnight-to-now.
+  const ts = hasValidTime ? Math.min(now, d.getTime()) : now;
+  scrubTime = { ts, label: fmt(ts) };
   offsetIdx = SCRUB_IDX;
   document.getElementById('time-input-row').style.display = 'none';
   render();

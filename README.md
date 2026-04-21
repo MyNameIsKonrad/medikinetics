@@ -35,7 +35,7 @@ One-compartment oral absorption model tuned to published methylphenidate paramet
 ## Features
 
 - Live concentration curve, updates every 30 seconds
-- Two stats: **taken today** (mg sum) and **in system** (PK model value at current time)
+- Two stats: **taken today** (local calendar day: midnight → now) and **in system** (PK model value at current time)
 - Rising indicator for the absorption phase immediately post-dose
 - Backdating via offset chips: now / -30m / -1h / -2h / -3h / -6h
 - Undo delete, 8-second window
