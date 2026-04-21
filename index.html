@@ -56,6 +56,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .chart-tooltip .tt-time { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); }
 .chart-tooltip .tt-val { font-family: 'DM Mono', monospace; font-size: 14px; color: var(--ir); margin-top: 2px; }
 .chart-tooltip .tt-unit { font-size: 10px; color: var(--dim); margin-left: 4px; }
+.chart-controls { margin-top: 10px; display: grid; gap: 6px; }
+.chart-control-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim);
+  text-transform: uppercase; letter-spacing: .1em; }
+.chart-slider { width: 100%; accent-color: var(--ir); }
+.chart-readout { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); }
 /* Dose buttons */
 .dose-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
 .dose-btn { display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -117,6 +122,22 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 #undo-toast.visible { display: flex; }
 #undo-btn { background: none; border: none; color: var(--ir); font-family: 'DM Mono', monospace;
   font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; letter-spacing: .06em; }
+.dose-btn:focus-visible, .offset-chip:focus-visible, .x-btn:focus-visible,
+.clear-btn:focus-visible, #undo-btn:focus-visible, .chart-slider:focus-visible {
+  outline: 2px solid #8ed1ff;
+  outline-offset: 2px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 </style>
 </head>
 <body>
@@ -136,9 +157,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
     <div class="stat-divider"></div>
     <div class="stat">
       <div class="stat-val" style="color:var(--ir)">
-        <span id="val-system">0.0</span><span class="unit">mg</span>
+        <span id="val-system" aria-live="polite">0.0</span><span class="unit">mg</span>
       </div>
       <div class="stat-label" id="label-system">in system</div>
+      <div id="sr-status" class="sr-only" aria-live="polite">In system: 0.0 mg. Status stable.</div>
     </div>
   </div>
 
@@ -152,6 +174,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
       <div class="chart-tooltip" id="chart-tooltip">
         <div class="tt-time" id="tt-time"></div>
         <div class="tt-val"><span id="tt-val">0.0</span><span class="tt-unit">mg eq</span></div>
+      </div>
+      <div class="chart-controls">
+        <label class="chart-control-label" for="chart-scrub-slider">inspect values (keyboard)</label>
+        <input type="range" id="chart-scrub-slider" class="chart-slider" min="0" max="0" step="1" value="0">
+        <div id="chart-scrub-readout" class="chart-readout">Time --:-- · 0.0 mg eq</div>
       </div>
     </div>
   </div>
@@ -174,7 +201,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   <div class="section" id="section-log" style="display:none">
     <div class="log-header">
       <div class="section-label" style="margin-bottom:0">log (24h)</div>
-      <button class="clear-btn" onclick="clearOld()">clear old</button>
+      <button class="clear-btn" onclick="clearOld()" aria-label="Clear doses older than 24 hours">clear old</button>
     </div>
     <div id="log-container"></div>
   </div>
@@ -184,7 +211,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 
 <div id="undo-toast">
   <span id="undo-msg"></span>
-  <button id="undo-btn" onclick="undoRemove()">UNDO</button>
+  <button id="undo-btn" onclick="undoRemove()" aria-label="Undo last deleted dose">UNDO</button>
 </div>
 
 <script>
@@ -365,6 +392,7 @@ function hideUndo() {
 // ── Chart ─────────────────────────────────────────────────
 let chartData = null;
 let chartWin  = null;
+let chartScale = null;
 
 function renderChart(today, now) {
   const svg    = document.getElementById('chart-svg');
@@ -384,6 +412,7 @@ function renderChart(today, now) {
   const xS = ts => XPAD + (ts - win.start) / (win.end - win.start) * CW;
   const maxConc = Math.max(...data.map(d => d.total), 5);
   const yS = v  => CH - (v / (maxConc * 1.2)) * CH;
+  chartScale = { xS, yS, XPAD, CW, CH };
 
   // X ticks — step adapts to window width
   const xTicks = [];
@@ -456,16 +485,15 @@ function renderChart(today, now) {
   const hit      = document.getElementById('chart-hit');
   const tooltip  = document.getElementById('chart-tooltip');
   const crosshair = document.getElementById('chart-crosshair');
-  function showTooltip(clientX, clientY) {
-    if (!chartData || !chartWin) return;
-    const rect = svg.getBoundingClientRect();
-    const relX = clientX - rect.left - XPAD;
-    const fracX = Math.max(0, Math.min(1, relX / CW));
-    const ts = chartWin.start + fracX * (chartWin.end - chartWin.start);
+  function updateInspectionAt(fracX, clientX = null, clientY = null) {
+    if (!chartData || !chartWin || !chartScale) return;
+    const { yS: yScale } = chartScale;
+    const frac = Math.max(0, Math.min(1, fracX));
+    const ts = chartWin.start + frac * (chartWin.end - chartWin.start);
     const closest = chartData.reduce((best, p) =>
       Math.abs(p.ts - ts) < Math.abs(best.ts - ts) ? p : best);
     // crosshair
-    const cx = XPAD + fracX * CW;
+    const cx = XPAD + frac * CW;
     crosshair.setAttribute('x1', cx);
     crosshair.setAttribute('x2', cx);
     // scrub chip — write time without re-render (past or future, for inspection)
@@ -480,18 +508,31 @@ function renderChart(today, now) {
     if (dotLayer) {
       dotLayer.innerHTML = today.map(pill => {
         const v = concAtTime([pill], closest.ts);
-        return `<circle cx="${cx}" cy="${yS(v)}" r="3" fill="${MEDS[pill.type].color}" stroke="var(--bg)" stroke-width="1.5"/>`;
+        return `<circle cx="${cx}" cy="${yScale(v)}" r="3" fill="${MEDS[pill.type].color}" stroke="var(--bg)" stroke-width="1.5"/>`;
       }).join('') +
-      `<circle cx="${cx}" cy="${yS(closest.total)}" r="4" fill="none" stroke="#5bb8f5" stroke-width="1.5"/>`;
+      `<circle cx="${cx}" cy="${yScale(closest.total)}" r="4" fill="none" stroke="#5bb8f5" stroke-width="1.5"/>`;
     }
+    const readout = document.getElementById('chart-scrub-readout');
+    if (readout) readout.textContent = `Time ${fmt(closest.ts)} · ${closest.total.toFixed(1)} mg eq`;
+    const slider = document.getElementById('chart-scrub-slider');
+    if (slider) slider.value = String(chartData.indexOf(closest));
     // tooltip
-    document.getElementById('tt-time').textContent = fmt(closest.ts);
-    document.getElementById('tt-val').textContent  = closest.total.toFixed(1);
-    const tLeft = Math.min(clientX - rect.left + 8, rect.width - 120);
-    tooltip.style.left = tLeft + 'px';
-    tooltip.style.top  = Math.max(4, clientY - rect.top - 60) + 'px';
-    tooltip.style.display = 'block';
+    if (clientX !== null && clientY !== null) {
+      const rect = svg.getBoundingClientRect();
+      document.getElementById('tt-time').textContent = fmt(closest.ts);
+      document.getElementById('tt-val').textContent  = closest.total.toFixed(1);
+      const tLeft = Math.min(clientX - rect.left + 8, rect.width - 120);
+      tooltip.style.left = tLeft + 'px';
+      tooltip.style.top  = Math.max(4, clientY - rect.top - 60) + 'px';
+      tooltip.style.display = 'block';
+    }
     if (hideTimer) clearTimeout(hideTimer);
+  }
+
+  function showTooltip(clientX, clientY) {
+    const rect = svg.getBoundingClientRect();
+    const relX = clientX - rect.left - XPAD;
+    updateInspectionAt(relX / CW, clientX, clientY);
   }
 
   function hideTooltip(delay = 0) {
@@ -515,6 +556,22 @@ function renderChart(today, now) {
   hit.addEventListener('touchend', () => hideTooltip(2500));
   hit.addEventListener('mousemove',  e => showTooltip(e.clientX, e.clientY));
   hit.addEventListener('mouseleave', () => hideTooltip(0));
+
+  const slider = document.getElementById('chart-scrub-slider');
+  if (slider) {
+    const max = Math.max(0, chartData.length - 1);
+    slider.min = '0';
+    slider.max = String(max);
+    slider.step = '1';
+    slider.value = String(Math.min(max, Math.max(0, Math.round(max * 0.5))));
+    slider.setAttribute('aria-label', 'Inspect concentration values over time');
+    slider.oninput = e => {
+      const idx = Number(e.target.value);
+      if (!Number.isFinite(idx) || !chartData[idx]) return;
+      updateInspectionAt(idx / Math.max(1, max));
+    };
+    slider.dispatchEvent(new Event('input'));
+  }
 }
 
 // ── Render ────────────────────────────────────────────────
@@ -529,9 +586,11 @@ function render() {
 
   document.getElementById('val-taken').textContent  = taken;
   document.getElementById('val-system').textContent = isRising ? '—' : inSystem.toFixed(1);
-  document.getElementById('label-system').innerHTML = isRising
-    ? '<span style="color:#94b8d4">↑ rising</span>'
-    : 'in system';
+  const systemLabel = isRising ? 'status: rising' : 'status: stable';
+  document.getElementById('label-system').textContent = `in system · ${systemLabel}`;
+  document.getElementById('sr-status').textContent = isRising
+    ? 'In system currently rising; numeric value will appear once stabilized.'
+    : `In system ${inSystem.toFixed(1)} milligrams. Status stable.`;
 
   // Chart
   renderChart(today, now);
@@ -545,6 +604,7 @@ function render() {
       btn.style.borderColor = def.color;
       btn.style.color = def.color;
       btn.innerHTML = `<span class="dose-btn-name">${def.label}</span><span class="dose-btn-sub">${def.sublabel}</span>`;
+      btn.setAttribute('aria-label', `Log ${def.label} dose, ${def.totalMg} milligrams`);
       btn.onclick = () => logPill(type);
       dg.appendChild(btn);
     });
@@ -554,8 +614,8 @@ function render() {
   const or = document.getElementById('offset-row');
   const scrubLabel = scrubTime ? scrubTime.label : '·  ·';
   or.innerHTML =
-    `<button class="offset-chip ${offsetIdx === SCRUB_IDX ? 'active' : ''} ${!scrubTime ? 'offset-chip-unset' : ''}" onclick="selectScrubChip()">${scrubLabel}</button>` +
-    OFFSETS.map((o, i) => `<button class="offset-chip ${i === offsetIdx ? 'active' : ''}" onclick="setOffset(${i})">${o.label}</button>`).join('');
+    `<button class="offset-chip ${offsetIdx === SCRUB_IDX ? 'active' : ''} ${!scrubTime ? 'offset-chip-unset' : ''}" onclick="selectScrubChip()" aria-label="Use inspected chart time as dose time">${scrubLabel}</button>` +
+    OFFSETS.map((o, i) => `<button class="offset-chip ${i === offsetIdx ? 'active' : ''}" onclick="setOffset(${i})" aria-label="Set dose time to ${o.label}">${o.label}</button>`).join('');
 
   // In progress
   const inProgress = today.filter(p => pillIsVisible(p, now));
@@ -644,7 +704,7 @@ function pillCardHTML(pill, now) {
           <span class="card-mg">${def.totalMg} mg</span>
           <span class="card-time">${fmt(pill.takenAt)}</span>
         </div>
-        <button class="x-btn" onclick="removePill(${pill.id})">×</button>
+        <button class="x-btn" onclick="removePill(${pill.id})" aria-label="Delete ${def.label} dose logged at ${fmt(pill.takenAt)}">×</button>
       </div>
       ${body}
     </div>`;
@@ -665,7 +725,7 @@ function logRowHTML(pill, now) {
       <span class="log-mg">${def.totalMg} mg</span>
       <span class="log-t">${fmt(pill.takenAt)}</span>
       <span class="log-status" style="color:${sc}">${st}</span>
-      <button class="x-btn" onclick="removePill(${pill.id})">×</button>
+      <button class="x-btn" onclick="removePill(${pill.id})" aria-label="Delete ${def.label} dose logged at ${fmt(pill.takenAt)}">×</button>
     </div>`;
 }
 
