@@ -363,10 +363,97 @@ function hideUndo() {
 }
 
 // ── Chart ─────────────────────────────────────────────────
-let chartData = null;
+let chartData = [];
 let chartWin  = null;
+let chartToday = [];
+let chartInteractionsBound = false;
+let chartGeom = { W: 0, CH: 140, XPAD: 28, BPAD: 20, H: 160, CW: 0 };
+let chartScales = {
+  x: () => 0,
+  y: () => 0,
+  maxConc: 5,
+};
 
-function renderChart(today, now) {
+function initChartInteractions() {
+  if (chartInteractionsBound) return;
+  chartInteractionsBound = true;
+
+  const svg = document.getElementById('chart-svg');
+  const tooltip = document.getElementById('chart-tooltip');
+
+  function hideTooltip(delay = 0) {
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      tooltip.style.display = 'none';
+      const crosshair = document.getElementById('chart-crosshair');
+      if (crosshair) {
+        crosshair.setAttribute('x1', '-999');
+        crosshair.setAttribute('x2', '-999');
+      }
+      const dotLayer = document.getElementById('dot-layer');
+      if (dotLayer) dotLayer.innerHTML = '';
+    }, delay);
+  }
+
+  function showTooltip(clientX, clientY) {
+    if (!chartData.length || !chartWin || !chartGeom.CW) return;
+    const rect = svg.getBoundingClientRect();
+    const relX = clientX - rect.left - chartGeom.XPAD;
+    const relY = clientY - rect.top;
+    if (relY < 0 || relY > chartGeom.CH) {
+      hideTooltip(0);
+      return;
+    }
+    const fracX = Math.max(0, Math.min(1, relX / chartGeom.CW));
+    const ts = chartWin.start + fracX * (chartWin.end - chartWin.start);
+    const closest = chartData.reduce((best, p) =>
+      Math.abs(p.ts - ts) < Math.abs(best.ts - ts) ? p : best);
+    const cx = chartGeom.XPAD + fracX * chartGeom.CW;
+
+    const crosshair = document.getElementById('chart-crosshair');
+    if (crosshair) {
+      crosshair.setAttribute('x1', cx);
+      crosshair.setAttribute('x2', cx);
+    }
+
+    scrubTime = { ts: closest.ts, label: fmt(closest.ts) };
+    const scrubChip = document.querySelector('#offset-row .offset-chip');
+    if (scrubChip) {
+      scrubChip.textContent = scrubTime.label;
+      scrubChip.classList.remove('offset-chip-unset');
+    }
+
+    const dotLayer = document.getElementById('dot-layer');
+    if (dotLayer) {
+      dotLayer.innerHTML = chartToday.map(pill => {
+        const v = concAtTime([pill], closest.ts);
+        return `<circle cx="${cx}" cy="${chartScales.y(v)}" r="3" fill="${MEDS[pill.type].color}" stroke="var(--bg)" stroke-width="1.5"/>`;
+      }).join('') +
+      `<circle cx="${cx}" cy="${chartScales.y(closest.total)}" r="4" fill="none" stroke="#5bb8f5" stroke-width="1.5"/>`;
+    }
+
+    document.getElementById('tt-time').textContent = fmt(closest.ts);
+    document.getElementById('tt-val').textContent  = closest.total.toFixed(1);
+    const tLeft = Math.min(clientX - rect.left + 8, rect.width - 120);
+    tooltip.style.left = tLeft + 'px';
+    tooltip.style.top  = Math.max(4, clientY - rect.top - 60) + 'px';
+    tooltip.style.display = 'block';
+    if (hideTimer) clearTimeout(hideTimer);
+  }
+
+  svg.addEventListener('touchstart', e => {
+    showTooltip(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  svg.addEventListener('touchmove', e => {
+    showTooltip(e.touches[0].clientX, e.touches[0].clientY);
+    e.preventDefault();
+  }, { passive: false });
+  svg.addEventListener('touchend', () => hideTooltip(2500));
+  svg.addEventListener('mousemove', e => showTooltip(e.clientX, e.clientY));
+  svg.addEventListener('mouseleave', () => hideTooltip(0));
+}
+
+function updateChartGraphics(today, now) {
   const svg    = document.getElementById('chart-svg');
   const W      = svg.clientWidth || 380;
   const CH     = 140; // curve height
@@ -379,11 +466,14 @@ function renderChart(today, now) {
   const data = buildCurve(today, win.start, win.end);
   chartData  = data;
   chartWin   = win;
+  chartToday = today;
 
   const CW = W - XPAD;
   const xS = ts => XPAD + (ts - win.start) / (win.end - win.start) * CW;
   const maxConc = Math.max(...data.map(d => d.total), 5);
   const yS = v  => CH - (v / (maxConc * 1.2)) * CH;
+  chartGeom = { W, CH, XPAD, BPAD, H, CW };
+  chartScales = { x: xS, y: yS, maxConc };
 
   // X ticks — step adapts to window width
   const xTicks = [];
@@ -449,72 +539,8 @@ function renderChart(today, now) {
     <g id="dot-layer"></g>
     <line id="chart-crosshair" x1="-999" y1="0" x2="-999" y2="${CH}"
       stroke="rgba(220,232,245,0.25)" stroke-width="1"/>
-    <rect x="${XPAD}" y="0" width="${CW}" height="${CH}" fill="transparent" id="chart-hit"/>
+    <rect x="${XPAD}" y="0" width="${CW}" height="${CH}" fill="transparent"/>
   `;
-
-  // Touch/mouse tooltip + crosshair
-  const hit      = document.getElementById('chart-hit');
-  const tooltip  = document.getElementById('chart-tooltip');
-  const crosshair = document.getElementById('chart-crosshair');
-  function showTooltip(clientX, clientY) {
-    if (!chartData || !chartWin) return;
-    const rect = svg.getBoundingClientRect();
-    const relX = clientX - rect.left - XPAD;
-    const fracX = Math.max(0, Math.min(1, relX / CW));
-    const ts = chartWin.start + fracX * (chartWin.end - chartWin.start);
-    const closest = chartData.reduce((best, p) =>
-      Math.abs(p.ts - ts) < Math.abs(best.ts - ts) ? p : best);
-    // crosshair
-    const cx = XPAD + fracX * CW;
-    crosshair.setAttribute('x1', cx);
-    crosshair.setAttribute('x2', cx);
-    // scrub chip — write time without re-render (past or future, for inspection)
-    scrubTime = { ts: closest.ts, label: fmt(closest.ts) };
-    const scrubChip = document.querySelector('#offset-row .offset-chip');
-    if (scrubChip) {
-      scrubChip.textContent = scrubTime.label;
-      scrubChip.classList.remove('offset-chip-unset');
-    }
-    // intersection dots
-    const dotLayer = document.getElementById('dot-layer');
-    if (dotLayer) {
-      dotLayer.innerHTML = today.map(pill => {
-        const v = concAtTime([pill], closest.ts);
-        return `<circle cx="${cx}" cy="${yS(v)}" r="3" fill="${MEDS[pill.type].color}" stroke="var(--bg)" stroke-width="1.5"/>`;
-      }).join('') +
-      `<circle cx="${cx}" cy="${yS(closest.total)}" r="4" fill="none" stroke="#5bb8f5" stroke-width="1.5"/>`;
-    }
-    // tooltip
-    document.getElementById('tt-time').textContent = fmt(closest.ts);
-    document.getElementById('tt-val').textContent  = closest.total.toFixed(1);
-    const tLeft = Math.min(clientX - rect.left + 8, rect.width - 120);
-    tooltip.style.left = tLeft + 'px';
-    tooltip.style.top  = Math.max(4, clientY - rect.top - 60) + 'px';
-    tooltip.style.display = 'block';
-    if (hideTimer) clearTimeout(hideTimer);
-  }
-
-  function hideTooltip(delay = 0) {
-    if (hideTimer) clearTimeout(hideTimer);
-    hideTimer = setTimeout(() => {
-      tooltip.style.display = 'none';
-      crosshair.setAttribute('x1', '-999');
-      crosshair.setAttribute('x2', '-999');
-      const dotLayer = document.getElementById('dot-layer');
-      if (dotLayer) dotLayer.innerHTML = '';
-    }, delay);
-  }
-
-  hit.addEventListener('touchstart', e => {
-    showTooltip(e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: true });
-  hit.addEventListener('touchmove', e => {
-    showTooltip(e.touches[0].clientX, e.touches[0].clientY);
-    e.preventDefault();
-  }, { passive: false });
-  hit.addEventListener('touchend', () => hideTooltip(2500));
-  hit.addEventListener('mousemove',  e => showTooltip(e.clientX, e.clientY));
-  hit.addEventListener('mouseleave', () => hideTooltip(0));
 }
 
 // ── Render ────────────────────────────────────────────────
@@ -534,7 +560,7 @@ function render() {
     : 'in system';
 
   // Chart
-  renderChart(today, now);
+  updateChartGraphics(today, now);
 
   // Dose buttons (static, only build once)
   const dg = document.getElementById('dose-grid');
@@ -671,6 +697,7 @@ function logRowHTML(pill, now) {
 
 // ── Init ──────────────────────────────────────────────────
 pills = loadPills();
+initChartInteractions();
 render();
 setInterval(render, 30000);
 
