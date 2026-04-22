@@ -1,5 +1,5 @@
-// Medikinetics Service Worker v2
-const VERSION = 'medikinetics-v2';
+// Medikinetics Service Worker v3
+const VERSION = 'medikinetics-v3';
 const CACHE   = VERSION;
 const ASSETS  = ['./index.html'];
 
