@@ -103,6 +103,13 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 /* Empty */
 .empty { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted);
   text-align: center; padding: 52px 0; }
+/* Log day groups */
+.log-day-header { display: flex; align-items: baseline; gap: 8px;
+  padding: 14px 0 6px; border-bottom: 1px solid var(--border); margin-bottom: 2px; }
+.log-day-header:first-child { padding-top: 0; }
+.log-day-label { font-family: 'DM Mono', monospace; font-size: 10px;
+  text-transform: uppercase; letter-spacing: .12em; color: var(--soft); }
+.log-day-total { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
 /* Undo toast */
 #undo-toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
   background: var(--border); border: 1px solid var(--soft); border-radius: 12px;
@@ -164,7 +171,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 
   <div class="section" id="section-log" style="display:none">
     <div class="log-header">
-      <div class="section-label" style="margin-bottom:0">log (24h)</div>
+      <div class="section-label" style="margin-bottom:0">log (48h)</div>
       <button class="clear-btn" onclick="clearOld()">clear old</button>
     </div>
     <div id="log-container"></div>
@@ -328,8 +335,8 @@ function undoRemove() {
 }
 
 function clearOld() {
-  const cutoff = Date.now() - 24 * 3600000;
-  pills = pills.filter(p => p.takenAt > cutoff);
+  const keep = startOfLocalDay() - 86400000; // keep today + yesterday
+  pills = pills.filter(p => p.takenAt >= keep);
   savePills();
   render();
 }
@@ -480,6 +487,23 @@ function renderChart(today, now) {
   hit.addEventListener('mouseleave', () => hideTooltip(0));
 }
 
+function renderLog(allPills, now) {
+  const sod = startOfLocalDay();
+  const yod = sod - 86400000;
+  const groups = [
+    { label: 'today',     pills: allPills.filter(p => p.takenAt >= sod) },
+    { label: 'yesterday', pills: allPills.filter(p => p.takenAt >= yod && p.takenAt < sod) },
+  ].filter(g => g.pills.length);
+  return groups.map(g => {
+    const totalMg = g.pills.reduce((s, p) => s + MEDS[p.type].totalMg, 0);
+    const header = `<div class="log-day-header">
+      <span class="log-day-label">${g.label}</span>
+      <span class="log-day-total">${totalMg > 0 ? `· ${totalMg} mg` : ''}</span>
+    </div>`;
+    return header + g.pills.map(p => logRowHTML(p, now)).join('');
+  }).join('');
+}
+
 // ── Render ────────────────────────────────────────────────
 function render() {
   const now   = Date.now();
@@ -531,17 +555,17 @@ function render() {
     secP.style.display = 'none';
   }
 
-  // Log
+  // Log — full 48h window with day groups
   const secL = document.getElementById('section-log');
   const lc   = document.getElementById('log-container');
-  if (today.length) {
+  if (pills.length) {
     secL.style.display = '';
-    lc.innerHTML = today.map(p => logRowHTML(p, now)).join('');
+    lc.innerHTML = renderLog(pills, now);
   } else {
     secL.style.display = 'none';
   }
 
-  document.getElementById('empty-state').style.display = today.length ? 'none' : '';
+  document.getElementById('empty-state').style.display = pills.length ? 'none' : '';
 }
 
 function setOffset(i) { offsetIdx = i; render(); }
