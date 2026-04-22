@@ -35,9 +35,12 @@ One-compartment oral absorption model tuned to published methylphenidate paramet
 ## Features
 
 - Live concentration curve, updates every 30 seconds
-- Two stats: **taken today** (mg sum) and **in system** (PK model value at current time)
-- Rising indicator for the absorption phase immediately post-dose
-- Backdating via offset chips: now / -30m / -1h / -2h / -3h / -6h
+- Two stats: **taken today** (calendar-day mg sum) and **in system** (PK model estimate in mg-equivalent units — normalized to the IR reference, not plasma ng/mL)
+- Rising indicator for the absorption phase post-dose
+- Backdating via offset chips: now / -30m / -1h / -2h / -3h
+- Custom time entry and chart scrubber chip — scrub the chart to a past or future time, then log a dose at that exact moment
+- Crosshair intersection dots on the concentration curve
+- "Now" marker on the timeline
 - Undo delete, 8-second window
 - LocalStorage persistence, auto-purge after 48h
 - Service worker for offline use and update-safe caching
@@ -65,11 +68,8 @@ Two files, no build step, no dependencies.
 
 ## Planned
 
-- Fixed daily timeline window (6am–midnight)
-- “Now” marker centered on timeline
-- Crosshair intersection dots
-- Time-cursor: scrub to a point, simulate or log a dose there
-- Custom backdate input
+- Scheduled (future) dose: log a dose you plan to take, see the projected curve, confirm when taken
+- Per-dose concentration model accuracy review and unit clarification in UI
 
 -----
 
