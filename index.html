@@ -574,7 +574,7 @@ function render() {
   // Stats
   const taken    = today.filter(p => p.takenAt >= startOfLocalDay()).reduce((s, p) => s + MEDS[p.type].totalMg, 0);
   const inSystem = concAtTime(today, now);
-  const isRising = inSystem < 2 && today.some(p => (now - p.takenAt) < 90 * 60000);
+  const isRising = concAtTime(today, now + 5 * 60000) > inSystem;
 
   document.getElementById('val-taken').textContent  = taken;
   document.getElementById('val-system').textContent = isRising ? '—' : inSystem.toFixed(1);
@@ -669,7 +669,6 @@ function pillCardHTML(pill, now) {
   let body;
   if (allDone) {
     const conc      = concAtTime([pill], now);
-    const pct       = Math.min(100, (conc / def.totalMg) * 100);
     const threshold = def.totalMg * 0.1;
     const minsLeft  = conc > threshold ? Math.round((Math.log(conc / threshold) / KE) * 60) : 0;
     const timeStr   = durStr(minsLeft * 60000) ?? '—';
@@ -679,7 +678,6 @@ function pillCardHTML(pill, now) {
           <span class="phase-mg" style="color:var(--soft)">clearing · ${conc.toFixed(1)} mg eq</span>
           <span class="phase-time">${timeStr} left</span>
         </div>
-        <div class="track"><div class="fill-bar" style="width:${pct}%;background:var(--soft)"></div></div>
       </div>`;
   } else {
     body = def.phases.map((ph, i) => {
@@ -721,7 +719,7 @@ function logRowHTML(pill, now) {
   const def      = MEDS[pill.type];
   const visible  = pillIsVisible(pill, now);
   const conc     = concAtTime([pill], now);
-  const rising   = conc < 2 && (now - pill.takenAt) < 90 * 60000;
+  const rising   = concAtTime([pill], now + 5 * 60000) > conc;
   const allDone  = def.phases.every(ph => phaseStatus(ph, pill.takenAt, now) === 'done');
   const clearing = visible && allDone;
   const st = !visible ? 'done' : rising ? '↑ rising' : clearing ? 'clearing' : 'active';
