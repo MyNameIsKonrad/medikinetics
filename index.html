@@ -112,6 +112,45 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 #undo-toast.visible { display: flex; }
 #undo-btn { background: none; border: none; color: var(--ir); font-family: 'DM Mono', monospace;
   font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; letter-spacing: .06em; }
+/* Info button */
+.info-btn { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--dim);
+  background: none; border: 1px solid var(--border); border-radius: 50%;
+  width: 14px; height: 14px; line-height: 1; padding: 0; cursor: pointer;
+  margin-left: 5px; vertical-align: middle; touch-action: manipulation;
+  display: inline-flex; align-items: center; justify-content: center; }
+.info-btn:active { color: var(--ir); border-color: var(--ir); }
+/* Info panel overlay */
+#info-overlay { position: fixed; inset: 0; background: rgba(8,13,23,.75);
+  z-index: 200; display: none; backdrop-filter: blur(2px); }
+#info-overlay.open { display: block; }
+/* Info panel */
+#info-panel { position: fixed; bottom: 0; left: 0; right: 0; max-width: 440px;
+  margin: 0 auto; background: var(--surface); border: 1px solid var(--border);
+  border-bottom: none; border-radius: 20px 20px 0 0;
+  padding: 0 20px calc(var(--safe-bot) + 32px);
+  z-index: 201; max-height: 80vh; overflow-y: auto;
+  transform: translateY(100%); transition: transform .32s cubic-bezier(.32,1,.5,1);
+  -webkit-overflow-scrolling: touch; }
+#info-panel.open { transform: translateY(0); }
+.info-handle { width: 36px; height: 4px; background: var(--border);
+  border-radius: 2px; margin: 14px auto 18px; }
+.info-panel-head { display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px; }
+.info-panel-title { font-size: 15px; font-weight: 700; letter-spacing: .04em; }
+.info-close { background: none; border: none; color: var(--muted); font-size: 22px;
+  line-height: 1; cursor: pointer; padding: 0 4px; touch-action: manipulation; }
+.info-section-head { font-family: 'DM Mono', monospace; font-size: 10px;
+  text-transform: uppercase; letter-spacing: .12em; color: var(--ir);
+  margin: 20px 0 8px; }
+.info-p { font-size: 13px; line-height: 1.65; color: var(--text); opacity: .85;
+  margin-bottom: 8px; }
+.info-formula { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--ir);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 14px; margin: 8px 0 12px; line-height: 1.6; }
+.info-list { padding-left: 18px; margin-bottom: 12px; }
+.info-list li { font-size: 13px; line-height: 1.65; opacity: .8; margin-bottom: 4px; }
+.info-disclaimer { font-size: 11px; color: var(--dim); border-top: 1px solid var(--border);
+  padding-top: 12px; margin-top: 8px; opacity: 1; }
 </style>
 </head>
 <body>
@@ -133,7 +172,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
       <div class="stat-val" style="color:var(--ir)">
         <span id="val-system">0.0</span><span class="unit">mg</span>
       </div>
-      <div class="stat-label" id="label-system">in system</div>
+      <div class="stat-label"><span id="label-system">in system</span><button class="info-btn" onclick="openInfoPanel()" aria-label="About this estimate">?</button></div>
     </div>
   </div>
 
@@ -176,6 +215,34 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 <div id="undo-toast">
   <span id="undo-msg"></span>
   <button id="undo-btn" onclick="undoRemove()">UNDO</button>
+</div>
+
+<div id="info-overlay" onclick="closeInfoPanel()"></div>
+<div id="info-panel" role="dialog" aria-modal="true" aria-label="About the model">
+  <div class="info-handle"></div>
+  <div class="info-panel-head">
+    <span class="info-panel-title">About the model</span>
+    <button class="info-close" onclick="closeInfoPanel()">×</button>
+  </div>
+  <div class="info-panel-body">
+    <p class="info-section-head">One-compartment Bateman equation</p>
+    <p class="info-p">Concentration at time <em>t</em> after ingestion is modelled as:</p>
+    <div class="info-formula">C(t) = D · (k<sub>a</sub> / (k<sub>a</sub> − k<sub>e</sub>)) · (e<sup>−k<sub>e</sub>t</sup> − e<sup>−k<sub>a</sub>t</sup>)</div>
+    <p class="info-p">where <em>k<sub>a</sub></em> is the absorption rate constant and <em>k<sub>e</sub></em> is the elimination rate constant (0.347 h⁻¹, giving a half-life of ≈ 2 h).</p>
+
+    <p class="info-section-head">What "mg eq" means</p>
+    <p class="info-p">Values are <strong>not</strong> plasma concentrations in ng/mL. They are a relative unit normalised to a 10 mg IR dose at its individual peak. One mg eq ≈ the relative effect of 1 mg of immediate-release methylphenidate at peak. This lets doses of different formulations be compared on a single scale.</p>
+
+    <p class="info-section-head">Population averages only</p>
+    <p class="info-p">Parameters (k<sub>a</sub>, k<sub>e</sub>) are population means. Your actual curve may differ based on:</p>
+    <ul class="info-list">
+      <li>Body weight and composition</li>
+      <li>Food intake — high-fat meals delay T<sub>max</sub> by ≈ 1 h for IR</li>
+      <li>CES1 gene variants, which affect methylphenidate hydrolysis</li>
+      <li>Gut motility and pH</li>
+    </ul>
+    <p class="info-p info-disclaimer">This is a tracking and planning aid, not a clinical tool. Do not adjust your dose based on these numbers without medical advice.</p>
+  </div>
 </div>
 
 <script>
@@ -341,6 +408,17 @@ function showUndo(pill) {
 }
 function hideUndo() {
   document.getElementById('undo-toast').classList.remove('visible');
+}
+
+function openInfoPanel() {
+  document.getElementById('info-overlay').classList.add('open');
+  document.getElementById('info-panel').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeInfoPanel() {
+  document.getElementById('info-overlay').classList.remove('open');
+  document.getElementById('info-panel').classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 // ── Chart ─────────────────────────────────────────────────
