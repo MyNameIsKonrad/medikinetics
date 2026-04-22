@@ -246,10 +246,13 @@ function buildCurve(pills, wStart, wEnd) {
 }
 
 function getCurveWindow(pills, now) {
-  const today = pills.filter(p => p.takenAt > now - 24 * 3600000);
-  if (!today.length) return { start: now - 1800000, end: now + 8 * 3600000 };
-  const earliest = Math.min(...today.map(p => p.takenAt));
-  const latest   = Math.max(...today.map(p => {
+  if (!pills.length) return { start: now - 1800000, end: now + 8 * 3600000 };
+  const sod = startOfLocalDay();
+  const todayDoses = pills.filter(p => p.takenAt >= sod);
+  const earliest = todayDoses.length
+    ? Math.min(...todayDoses.map(p => p.takenAt))
+    : now;
+  const latest = Math.max(...pills.map(p => {
     const lp = MEDS[p.type].phases.at(-1);
     return p.takenAt + (lp.offsetHours + lp.durationHours) * 3600000;
   }));
@@ -261,6 +264,7 @@ function getCurveWindow(pills, now) {
 
 // ── Helpers ───────────────────────────────────────────────
 const fmt = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+function startOfLocalDay() { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
 const phaseStart = (ph, t) => t + ph.offsetHours * 3600000;
 const phaseEnd   = (ph, t) => phaseStart(ph, t) + ph.durationHours * 3600000;
 
@@ -523,7 +527,7 @@ function render() {
   const today = pills.filter(p => p.takenAt > now - 24 * 3600000);
 
   // Stats
-  const taken    = today.reduce((s, p) => s + MEDS[p.type].totalMg, 0);
+  const taken    = today.filter(p => p.takenAt >= startOfLocalDay()).reduce((s, p) => s + MEDS[p.type].totalMg, 0);
   const inSystem = concAtTime(today, now);
   const isRising = inSystem < 2 && today.some(p => (now - p.takenAt) < 90 * 60000);
 
