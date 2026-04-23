@@ -577,7 +577,7 @@ function render() {
   const isRising = concAtTime(today, now + 5 * 60000) > inSystem;
 
   document.getElementById('val-taken').textContent  = taken;
-  document.getElementById('val-system').textContent = isRising ? '—' : inSystem.toFixed(1);
+  document.getElementById('val-system').textContent = inSystem.toFixed(1);
   document.getElementById('label-system').innerHTML = isRising
     ? '<span style="color:#94b8d4">↑ rising</span>'
     : 'in system';
