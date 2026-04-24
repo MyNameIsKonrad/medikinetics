@@ -12,10 +12,12 @@ Check `git log` for the latest. Phases completed so far:
 - Phase 7: README cleanup; "in system" label → "mg eq"
 - Phase 8: dose simulation / preview (ephemeral, never persisted)
 - Phase 9: isRising uses PK slope; clearing bar removed; this file added
+- Phase 10: Bateman equal-rate limit fix (PR #19); fasted CR model (single phase 20mg ka=1.0, default); per-dose fed/fasted toggle chip on pill cards; GitHub Issues workflow established
 
 ## Key architectural decisions
 - Single-file: all app logic lives in `index.html`. Keep it that way.
-- PK model: Bateman equation, KE=0.347, KA=2.0 (IR), KA=0.7 (CR delayed phase)
+- PK model: Bateman equation, KE=0.347, KA=2.0 (IR), KA=0.7 (CR fed delayed phase), KA=1.0 (CR fasted — judgment call, single phase)
+- CR pills store `fed: boolean` (default false). `phasesFor(pill)` selects `MEDS.CR.fastedPhases` or `MEDS.CR.phases` accordingly. All phase iteration must go through `phasesFor()`.
 - Simulation is ephemeral (`simulatedPills` array, never saved) — not "scheduled doses"
 - Graph window left edge anchors to today's midnight; PK curve uses 24h rolling filter
 - "taken today" stat uses `startOfLocalDay()`; PK curve uses rolling 24h
@@ -32,4 +34,4 @@ Check `git log` for the latest. Phases completed so far:
 |-------|------|------|--------|
 | IR ½ | Methylphenidate IR | 5mg | Single phase, ka=2.0 |
 | IR | Methylphenidate IR | 10mg | Single phase, ka=2.0 |
-| CR | Methylphenidate CR | 20mg | 10mg at 0h (ka=2.0) + 10mg at +4h (ka=0.7) |
+| CR | Methylphenidate CR | 20mg | **Fasted (default):** 20mg at 0h (ka=1.0). **Fed:** 10mg at 0h (ka=2.0) + 10mg at +4h (ka=0.7) |
