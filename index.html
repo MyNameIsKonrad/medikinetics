@@ -72,6 +72,12 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .offset-chip.active { border-color: var(--ir); background: rgba(91,184,245,.12); color: var(--ir); }
 .offset-chip-unset { opacity: .4; }
 .time-input-row { display: none; align-items: center; gap: 8px; margin-top: 8px; }
+/* Fed/fasted toggle on CR pill cards */
+.fed-chip { display: inline-block; font-family: 'DM Mono', monospace; font-size: 10px;
+  padding: 3px 8px; border-radius: 20px; border: 1px solid var(--border);
+  background: transparent; color: var(--dim); cursor: pointer;
+  touch-action: manipulation; transition: all .15s; margin-bottom: 6px; }
+.fed-chip--fed { border-color: #f5a050; background: rgba(245,160,80,.12); color: #f5a050; }
 .manual-time-input { font-family: 'DM Mono', monospace; font-size: 12px;
   background: transparent; border: 1px solid var(--ir); border-radius: 8px;
   color: var(--text); padding: 5px 10px; width: 120px; color-scheme: dark; }
@@ -199,8 +205,12 @@ const MEDS = {
   IR:  { label: 'IR',   sublabel: 'Medikinet 10mg', totalMg: 10, color: '#5bb8f5',
          phases: [{ offsetHours: 0, mg: 10, durationHours: 4, ka: 2.0 }] },
   CR:  { label: 'CR',   sublabel: 'Medikinet 20mg', totalMg: 20, color: '#f5a050',
-         phases: [{ offsetHours: 0, mg: 10, durationHours: 4, ka: 2.0 },
-                  { offsetHours: 4, mg: 10, durationHours: 4, ka: 0.7 }] },
+         phases:       [{ offsetHours: 0, mg: 10, durationHours: 4, ka: 2.0 },
+                        { offsetHours: 4, mg: 10, durationHours: 4, ka: 0.7 }],
+         // ka=1.0: judgment call — ER beads release early without food but bead matrix
+         // still slows absorption vs pure IR. Yields Tmax ~1.6h, consistent with
+         // Haessler 2008 "steady absorption / single Tmax" under fasted conditions.
+         fastedPhases: [{ offsetHours: 0, mg: 20, durationHours: 6, ka: 1.0 }] },
 };
 
 const OFFSETS = [
@@ -224,10 +234,14 @@ function phaseConc(mg, tH, ka) {
   return Math.max(0, mg * NORM * (ka / (ka - KE)) * (Math.exp(-KE * tH) - Math.exp(-ka * tH)));
 }
 
+function phasesFor(pill) {
+  return (pill.type === 'CR' && !pill.fed) ? MEDS.CR.fastedPhases : MEDS[pill.type].phases;
+}
+
 function concAtTime(pills, ts) {
   let total = 0;
   for (const p of pills)
-    for (const ph of MEDS[p.type].phases)
+    for (const ph of phasesFor(p))
       total += phaseConc(ph.mg, (ts - (p.takenAt + ph.offsetHours * 3600000)) / 3600000, ph.ka);
   return total;
 }
@@ -239,7 +253,7 @@ function buildCurve(pills, wStart, wEnd) {
     const perPill = {};
     for (const p of pills) {
       let pt = 0;
-      for (const ph of MEDS[p.type].phases)
+      for (const ph of phasesFor(p))
         pt += phaseConc(ph.mg, (ts - (p.takenAt + ph.offsetHours * 3600000)) / 3600000, ph.ka);
       perPill[p.id] = Math.round(pt * 10) / 10;
       total += pt;
@@ -287,7 +301,7 @@ function durStr(ms) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 function pillIsVisible(pill, now) {
-  const lp = MEDS[pill.type].phases.at(-1);
+  const lp = phasesFor(pill).at(-1);
   return now < phaseEnd(lp, pill.takenAt) || concAtTime([pill], now) >= MEDS[pill.type].totalMg * 0.1;
 }
 
@@ -326,18 +340,26 @@ function logPill(type) {
 
   if (rawAt > now) {
     // Future time → preview only, not persisted; don't consume debounce budget
-    simulatedPills = [{ id: now, type, takenAt: rawAt, sim: true }];
+    simulatedPills = [{ id: now, type, takenAt: rawAt, sim: true, ...(type === 'CR' ? { fed: false } : {}) }];
     render();
     return;
   }
 
   _lastLog = now;
   simulatedPills = [];
-  pills = [{ id: now, type, takenAt: Math.min(now, rawAt) }, ...pills];
+  pills = [{ id: now, type, takenAt: Math.min(now, rawAt), ...(type === 'CR' ? { fed: false } : {}) }, ...pills];
   savePills();
   offsetIdx = OFFSETS.length - 1;
   scrubTime = null;
   document.getElementById('time-input-row').style.display = 'none';
+  render();
+}
+
+function toggleFed(id) {
+  const pill = pills.find(p => p.id === id);
+  if (!pill) return;
+  pill.fed = !pill.fed;
+  savePills();
   render();
 }
 
@@ -664,7 +686,8 @@ function pillCardHTML(pill, now) {
     </div>`;
   }
 
-  const allDone = def.phases.every(ph => phaseStatus(ph, pill.takenAt, now) === 'done');
+  const phases  = phasesFor(pill);
+  const allDone = phases.every(ph => phaseStatus(ph, pill.takenAt, now) === 'done');
 
   let body;
   if (allDone) {
@@ -680,7 +703,7 @@ function pillCardHTML(pill, now) {
         </div>
       </div>`;
   } else {
-    body = def.phases.map((ph, i) => {
+    body = phases.map((ph, i) => {
       const st  = phaseStatus(ph, pill.takenAt, now);
       const pct = phasePct(ph, pill.takenAt, now);
       const left  = durStr(phaseEnd(ph, pill.takenAt) - now);
@@ -711,6 +734,7 @@ function pillCardHTML(pill, now) {
         </div>
         <button class="x-btn" onclick="removePill(${pill.id})">×</button>
       </div>
+      ${pill.type === 'CR' ? `<button class="fed-chip${pill.fed ? ' fed-chip--fed' : ''}" onclick="toggleFed(${pill.id})">${pill.fed ? 'with food' : 'fasted'}</button>` : ''}
       ${body}
     </div>`;
 }
@@ -720,7 +744,7 @@ function logRowHTML(pill, now) {
   const visible  = pillIsVisible(pill, now);
   const conc     = concAtTime([pill], now);
   const rising   = concAtTime([pill], now + 5 * 60000) > conc;
-  const allDone  = def.phases.every(ph => phaseStatus(ph, pill.takenAt, now) === 'done');
+  const allDone  = phasesFor(pill).every(ph => phaseStatus(ph, pill.takenAt, now) === 'done');
   const clearing = visible && allDone;
   const st = !visible ? 'done' : rising ? '↑ rising' : clearing ? 'clearing' : 'active';
   const sc = !visible ? '#2d3f57' : clearing ? '#a07840' : '#4ecb8d';
