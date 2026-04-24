@@ -113,9 +113,15 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .log-status { font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
 /* Buttons */
 .x-btn { background: none; border: none; color: var(--muted); font-size: 20px;
-  line-height: 1; cursor: pointer; padding: 0 4px; touch-action: manipulation; }
+  line-height: 1; cursor: pointer; padding: 8px; margin: -8px; touch-action: manipulation;
+  transition: color .15s; }
+.x-btn:active { color: var(--soft); }
 .clear-btn { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted);
-  background: none; border: none; text-transform: uppercase; letter-spacing: .1em; cursor: pointer; }
+  background: none; border: none; text-transform: uppercase; letter-spacing: .1em;
+  cursor: pointer; touch-action: manipulation; transition: opacity .15s; }
+.clear-btn:active { opacity: .6; }
+/* Focus */
+:focus-visible { outline: 2px solid var(--ir); outline-offset: 2px; border-radius: 4px; }
 /* Empty */
 .empty { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted);
   text-align: center; padding: 52px 0; }
@@ -138,7 +144,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 <div id="app">
   <div class="header">
     <div class="title">Medikinetics</div>
-    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· v3</span></div>
+    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260424.2246</span></div>
   </div>
 
   <div class="stats-row">
@@ -705,7 +711,7 @@ function pillCardHTML(pill, now) {
     body = `
       <div class="phase-row">
         <div class="phase-top">
-          <span class="phase-mg" style="color:var(--soft)">clearing · ${conc.toFixed(1)} mg eq</span>
+          <span class="phase-mg" style="color:var(--soft)">clearing · 20260424.2246</span>
           <span class="phase-time">${timeStr} left</span>
         </div>
       </div>`;
