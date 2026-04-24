@@ -17,6 +17,8 @@
   --bg: #080d17; --surface: #0f1623; --border: #1a2235;
   --muted: #2d3f57; --dim: #3a5070; --soft: #4a6080;
   --text: #dce8f5; --ir: #5bb8f5; --cr: #f5a050; --green: #4ecb8d;
+  --now: #ff6b6b; --clearing: #a07840; --rising: #94b8d4;
+  --toast-text: #8ba3be; --tooltip-bg: #0a1020;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bot: env(safe-area-inset-bottom, 0px);
 }
@@ -26,7 +28,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 #app { max-width: 440px; margin: 0 auto;
   padding: calc(var(--safe-top) + 24px) 20px calc(var(--safe-bot) + 48px); }
 .mono { font-family: 'DM Mono', monospace; }
-.header { margin-bottom: 26px; }
+.header { margin-bottom: 24px; }
 .title { font-size: 21px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .sub { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim);
   letter-spacing: .14em; text-transform: uppercase; margin-top: 3px; }
@@ -41,32 +43,32 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   text-transform: uppercase; letter-spacing: .1em; margin-top: 6px; }
 .stat-divider { width: 1px; height: 52px; background: var(--border); margin: 0 20px; }
 /* Section */
-.section { margin-bottom: 26px; }
+.section { margin-bottom: 24px; }
 .section-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim);
   text-transform: uppercase; letter-spacing: .14em; margin-bottom: 12px; }
 /* Chart */
 .chart-wrap { background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 12px 8px 8px; position: relative; }
+  border-radius: 16px; padding: 12px 8px; position: relative; }
 .chart-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
 .chart-est { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted);
   text-transform: uppercase; letter-spacing: .1em; }
 #chart-svg { width: 100%; display: block; overflow: visible; }
-.chart-tooltip { position: absolute; background: #0a1020; border: 1px solid var(--border);
+.chart-tooltip { position: absolute; background: var(--tooltip-bg); border: 1px solid var(--border);
   border-radius: 8px; padding: 8px 12px; pointer-events: none; display: none; z-index: 10; }
 .chart-tooltip .tt-time { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); }
 .chart-tooltip .tt-val { font-family: 'DM Mono', monospace; font-size: 14px; color: var(--ir); margin-top: 2px; }
 .chart-tooltip .tt-unit { font-size: 10px; color: var(--dim); margin-left: 4px; }
 /* Dose buttons */
-.dose-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.dose-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .dose-btn { display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 14px 8px; background: transparent; border: 1.5px solid; border-radius: 14px;
-  cursor: pointer; touch-action: manipulation; transition: opacity .1s; }
+  padding: 14px 8px; background: transparent; border: 1.5px solid; border-radius: 16px;
+  cursor: pointer; touch-action: manipulation; transition: opacity .15s; }
 .dose-btn:active { opacity: .7; }
 .dose-btn-name { font-size: 16px; font-weight: 700; letter-spacing: .04em; }
 .dose-btn-sub { font-family: 'DM Mono', monospace; font-size: 9px; opacity: .6; }
 /* Offset chips */
-.offset-row { display: flex; gap: 6px; flex-wrap: nowrap; }
-.offset-chip { flex: 1; font-family: 'DM Mono', monospace; font-size: 11px; padding: 5px 4px;
+.offset-row { display: flex; gap: 8px; flex-wrap: nowrap; }
+.offset-chip { flex: 1; font-family: 'DM Mono', monospace; font-size: 11px; padding: 4px 8px;
   border-radius: 20px; border: 1px solid var(--border); background: transparent; text-align: center;
   color: var(--dim); cursor: pointer; touch-action: manipulation; transition: all .15s; }
 .offset-chip.active { border-color: var(--ir); background: rgba(91,184,245,.12); color: var(--ir); }
@@ -86,7 +88,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   color: var(--text); padding: 5px 10px; width: 120px; color-scheme: dark; }
 /* Card */
 .pill-card { background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 16px; margin-bottom: 10px; }
+  border-radius: 16px; padding: 16px; margin-bottom: 10px; }
 .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .card-head-left { display: flex; align-items: baseline; gap: 8px; }
 .card-type { font-size: 15px; font-weight: 700; }
@@ -94,7 +96,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .card-time { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); }
 /* Phase bar */
 .phase-row { margin-bottom: 8px; }
-.phase-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.phase-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 .phase-mg { font-size: 13px; font-weight: 600; }
 .phase-tag { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim); margin-left: 5px; }
 .phase-time { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); }
@@ -102,8 +104,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .fill-bar { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
 /* Log */
 .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.log-row { display: flex; align-items: center; gap: 10px;
-  padding: 10px 0; border-bottom: 1px solid #0f1623; }
+.log-row { display: flex; align-items: center; gap: 8px;
+  padding: 10px 0; border-bottom: 1px solid var(--surface); }
 .log-row.expired { opacity: .3; }
 .log-type { font-size: 13px; font-weight: 700; min-width: 36px; }
 .log-mg { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--soft); min-width: 44px; }
@@ -121,7 +123,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 #undo-toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
   background: var(--border); border: 1px solid var(--soft); border-radius: 12px;
   padding: 12px 18px; display: none; align-items: center; gap: 14px;
-  font-family: 'DM Mono', monospace; font-size: 12px; color: #8ba3be;
+  font-family: 'DM Mono', monospace; font-size: 12px; color: var(--toast-text);
   box-shadow: 0 4px 24px rgba(0,0,0,.5); white-space: nowrap; z-index: 100; }
 #undo-toast.visible { display: flex; }
 #undo-btn { background: none; border: none; color: var(--ir); font-family: 'DM Mono', monospace;
@@ -514,8 +516,8 @@ function renderChart(today, simulated, now) {
     ${pillFills}
     ${totalLinesSVG}
     ${markers}
-    <line x1="${nowX}" y1="0" x2="${nowX}" y2="${CH}" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="4,3"/>
-    <text x="${Math.min(nowX + 4, W - 28)}" y="12" font-family="'DM Mono',monospace" font-size="9" fill="#ff6b6b">now</text>
+    <line x1="${nowX}" y1="0" x2="${nowX}" y2="${CH}" style="stroke:var(--now)" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <text x="${Math.min(nowX + 4, W - 28)}" y="12" font-family="'DM Mono',monospace" font-size="9" style="fill:var(--now)">now</text>
     ${xTicks.map(ts => {
       const x = xS(ts);
       if (x < XPAD + 10 || x > W - 10) return '';
@@ -606,7 +608,7 @@ function render() {
   document.getElementById('val-taken').textContent  = taken;
   document.getElementById('val-system').textContent = inSystem.toFixed(1);
   document.getElementById('label-system').innerHTML = isRising
-    ? '<span style="color:#94b8d4">↑ rising</span>'
+    ? '<span style="color:var(--rising)">↑ rising</span>'
     : 'in system';
 
   // Chart
@@ -713,8 +715,8 @@ function pillCardHTML(pill, now) {
       const pct = phasePct(ph, pill.takenAt, now);
       const left  = durStr(phaseEnd(ph, pill.takenAt) - now);
       const until = durStr(phaseStart(ph, pill.takenAt) - now);
-      const color  = st === 'active' ? def.color : st === 'pending' ? '#4a6080' : '#2d3f57';
-      const fillBg = st === 'active' ? def.color : '#1a2235';
+      const color  = st === 'active' ? def.color : st === 'pending' ? 'var(--soft)' : 'var(--muted)';
+      const fillBg = st === 'active' ? def.color : 'var(--border)';
       const tag  = i > 0 ? `<span class="phase-tag">+${ph.offsetHours}h release</span>` : '';
       const time = st === 'active' && left   ? `${left} left`
                  : st === 'pending' && until ? `in ${until}` : 'done';
@@ -752,7 +754,7 @@ function logRowHTML(pill, now) {
   const allDone  = phasesFor(pill).every(ph => phaseStatus(ph, pill.takenAt, now) === 'done');
   const clearing = visible && allDone;
   const st = !visible ? 'done' : rising ? '↑ rising' : clearing ? 'clearing' : 'active';
-  const sc = !visible ? '#2d3f57' : clearing ? '#a07840' : '#4ecb8d';
+  const sc = !visible ? 'var(--muted)' : clearing ? 'var(--clearing)' : 'var(--green)';
   return `
     <div class="log-row ${visible ? '' : 'expired'}">
       <span class="log-type" style="color:${def.color}">${def.label}</span>
