@@ -73,10 +73,13 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .offset-chip-unset { opacity: .4; }
 .time-input-row { display: none; align-items: center; gap: 8px; margin-top: 8px; }
 /* Fed/fasted toggle on CR pill cards */
-.fed-chip { display: inline-block; font-family: 'DM Mono', monospace; font-size: 10px;
-  padding: 3px 8px; border-radius: 20px; border: 1px solid var(--border);
-  background: transparent; color: var(--dim); cursor: pointer;
-  touch-action: manipulation; transition: all .15s; margin-bottom: 6px; }
+.pill-card:has(.fed-chip) .card-head { margin-bottom: 8px; }
+.fed-chip { display: inline-flex; align-items: center; gap: 5px;
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  padding: 4px 10px; border-radius: 20px; border: 1px solid var(--muted);
+  background: rgba(74,96,128,.08); color: var(--soft); cursor: pointer;
+  touch-action: manipulation; transition: all .15s; margin-bottom: 8px; }
+.fed-chip::before { content: '⇅'; font-size: 9px; opacity: .6; }
 .fed-chip--fed { border-color: #f5a050; background: rgba(245,160,80,.12); color: #f5a050; }
 .manual-time-input { font-family: 'DM Mono', monospace; font-size: 12px;
   background: transparent; border: 1px solid var(--ir); border-radius: 8px;
