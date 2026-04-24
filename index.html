@@ -220,7 +220,9 @@ const NORM = 1 / _cm;
 
 function phaseConc(mg, tH, ka) {
   if (tH < 0) return 0;
-  if (Math.abs(ka - KE) < 0.001) return 0;
+  if (Math.abs(ka - KE) < 0.001) {
+    return Math.max(0, mg * NORM * KE * tH * Math.exp(-KE * tH));
+  }
   return Math.max(0, mg * NORM * (ka / (ka - KE)) * (Math.exp(-KE * tH) - Math.exp(-ka * tH)));
 }
 
