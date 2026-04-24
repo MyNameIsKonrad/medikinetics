@@ -29,14 +29,14 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   padding: calc(var(--safe-top) + 24px) 20px calc(var(--safe-bot) + 48px); }
 .mono { font-family: 'DM Mono', monospace; }
 .header { margin-bottom: 24px; }
-.title { font-size: 21px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.title { font-size: 20px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .sub { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim);
   letter-spacing: .14em; text-transform: uppercase; margin-top: 3px; }
 /* Stats */
 .stats-row { display: flex; align-items: center; background: var(--surface);
   border: 1px solid var(--border); border-radius: 16px; padding: 24px 20px; margin-bottom: 28px; }
 .stat { flex: 1; }
-.stat-val { font-size: 38px; font-weight: 700; line-height: 1;
+.stat-val { font-size: 40px; font-weight: 700; line-height: 1;
   display: flex; align-items: baseline; gap: 2px; }
 .stat-val .unit { font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 2px; }
 .stat-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim);
@@ -50,7 +50,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .chart-wrap { background: var(--surface); border: 1px solid var(--border);
   border-radius: 16px; padding: 12px 8px; position: relative; }
 .chart-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
-.chart-est { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted);
+.chart-est { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted);
   text-transform: uppercase; letter-spacing: .1em; }
 #chart-svg { width: 100%; display: block; overflow: visible; }
 .chart-tooltip { position: absolute; background: var(--tooltip-bg); border: 1px solid var(--border);
@@ -65,7 +65,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   cursor: pointer; touch-action: manipulation; transition: opacity .15s; }
 .dose-btn:active { opacity: .7; }
 .dose-btn-name { font-size: 16px; font-weight: 700; letter-spacing: .04em; }
-.dose-btn-sub { font-family: 'DM Mono', monospace; font-size: 9px; opacity: .6; }
+.dose-btn-sub { font-family: 'DM Mono', monospace; font-size: 10px; opacity: .6; }
 /* Offset chips */
 .offset-row { display: flex; gap: 8px; flex-wrap: nowrap; }
 .offset-chip { flex: 1; font-family: 'DM Mono', monospace; font-size: 11px; padding: 4px 8px;
@@ -509,19 +509,19 @@ function renderChart(today, simulated, now) {
       </linearGradient>
     </defs>
     ${yTicks.map(v => `
-      <text x="${XPAD - 4}" y="${yS(v) + 3}" font-family="'DM Mono',monospace" font-size="9"
-        fill="#3a5070" text-anchor="end">${v}</text>
+      <text x="${XPAD - 4}" y="${yS(v) + 3}" font-family="'DM Mono',monospace" font-size="10"
+        style="fill:var(--dim)" text-anchor="end">${v}</text>
       <line x1="${XPAD}" y1="${yS(v)}" x2="${W}" y2="${yS(v)}" stroke="#1a2235" stroke-width="${v === 0 ? 1 : 0.5}"/>
     `).join('')}
     ${pillFills}
     ${totalLinesSVG}
     ${markers}
     <line x1="${nowX}" y1="0" x2="${nowX}" y2="${CH}" style="stroke:var(--now)" stroke-width="1.5" stroke-dasharray="4,3"/>
-    <text x="${Math.min(nowX + 4, W - 28)}" y="12" font-family="'DM Mono',monospace" font-size="9" style="fill:var(--now)">now</text>
+    <text x="${Math.min(nowX + 4, W - 28)}" y="12" font-family="'DM Mono',monospace" font-size="10" style="fill:var(--now)">now</text>
     ${xTicks.map(ts => {
       const x = xS(ts);
       if (x < XPAD + 10 || x > W - 10) return '';
-      return `<text x="${x}" y="${CH + 14}" font-family="'DM Mono',monospace" font-size="9" fill="#3a5070" text-anchor="middle">${fmt(ts)}</text>`;
+      return `<text x="${x}" y="${CH + 14}" font-family="'DM Mono',monospace" font-size="10" style="fill:var(--dim)" text-anchor="middle">${fmt(ts)}</text>`;
     }).join('')}
     <g id="dot-layer"></g>
     <line id="chart-crosshair" x1="-999" y1="0" x2="-999" y2="${CH}"
