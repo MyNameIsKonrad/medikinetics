@@ -144,7 +144,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 <div id="app">
   <div class="header">
     <div class="title">Medikinetics</div>
-    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260424.2246</span></div>
+    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260424.2247</span></div>
   </div>
 
   <div class="stats-row">
@@ -711,7 +711,7 @@ function pillCardHTML(pill, now) {
     body = `
       <div class="phase-row">
         <div class="phase-top">
-          <span class="phase-mg" style="color:var(--soft)">clearing · 20260424.2246</span>
+          <span class="phase-mg" style="color:var(--soft)">clearing · ${conc.toFixed(1)} mg eq</span>
           <span class="phase-time">${timeStr} left</span>
         </div>
       </div>`;
