@@ -41,7 +41,8 @@ One-compartment oral absorption model tuned to published methylphenidate paramet
 - Rising indicator for the absorption phase post-dose
 - Fed/fasted toggle per CR dose — fasted is the default; tap the ⇅ chip on the pill card to switch to the with-food biphasic model, updating the curve immediately
 - Backdating via offset chips: now / -30m / -1h / -2h / -3h
-- Custom time entry and chart scrubber chip — scrub the chart to a past or future time, then log a dose at that exact moment
+- Custom time entry and chart scrubber chip — scrub the chart to a past time then log a dose at that exact moment
+- Simulate future dose – scrub to a fiture time, tap the custom entry, and log a dose to see a temporary overlay
 - Crosshair intersection dots on the concentration curve
 - "Now" marker on the timeline
 - Undo delete, 8-second window
@@ -66,13 +67,6 @@ Two files, no build step, no dependencies.
 1. Open the URL in Safari on iOS → Share → Add to Home Screen
 
 **Updating:** bump `VERSION` in `sw.js`, push both files, pull to refresh once in the app. LocalStorage data survives.
-
------
-
-## Planned
-
-- Scheduled (future) dose: log a dose you plan to take, see the projected curve, confirm when taken
-- Per-dose concentration model accuracy review and unit clarification in UI
 
 -----
 
