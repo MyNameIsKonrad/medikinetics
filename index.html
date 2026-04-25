@@ -63,7 +63,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .dose-btn { display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 14px 8px; background: transparent; border: 1.5px solid; border-radius: 16px;
   cursor: pointer; touch-action: manipulation; transition: opacity .15s; }
-.dose-btn:active { opacity: .7; }
+.dose-btn:active { opacity: .45; }
 .dose-btn-name { font-size: 16px; font-weight: 700; letter-spacing: .04em; }
 .dose-btn-sub { font-family: 'DM Mono', monospace; font-size: 10px; opacity: .6; }
 /* Offset chips */
@@ -72,6 +72,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   border-radius: 20px; border: 1px solid var(--border); background: transparent; text-align: center;
   color: var(--dim); cursor: pointer; touch-action: manipulation; transition: all .15s; }
 .offset-chip.active { border-color: var(--ir); background: rgba(91,184,245,.12); color: var(--ir); }
+.offset-chip:active { opacity: .45; }
 .offset-chip-unset { opacity: .75; }
 .time-input-row { display: none; align-items: center; gap: 8px; margin-top: 8px; }
 /* Fed/fasted toggle on CR pill cards */
@@ -83,12 +84,13 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   touch-action: manipulation; transition: all .15s; margin-bottom: 8px; }
 .fed-chip::before { content: '⇅'; font-size: 9px; opacity: .6; }
 .fed-chip--fed { border-color: #f5a050; background: rgba(245,160,80,.12); color: #f5a050; }
+.fed-chip:active { opacity: .45; }
 .manual-time-input { font-family: 'DM Mono', monospace; font-size: 12px;
   background: transparent; border: 1px solid var(--ir); border-radius: 8px;
   color: var(--text); padding: 5px 10px; width: 120px; color-scheme: dark; }
 /* Card */
 .pill-card { background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 16px; margin-bottom: 10px; }
+  border-radius: 16px; padding: 16px; margin-bottom: 12px; }
 .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .card-head-left { display: flex; align-items: baseline; gap: 8px; }
 .card-type { font-size: 15px; font-weight: 700; }
@@ -105,7 +107,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 /* Log */
 .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .log-row { display: flex; align-items: center; gap: 8px;
-  padding: 10px 0; border-bottom: 1px solid var(--surface); }
+  padding: 12px 0; border-bottom: 1px solid var(--surface); }
 .log-row.expired { opacity: .3; }
 .log-type { font-size: 13px; font-weight: 700; min-width: 36px; }
 .log-mg { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--soft); min-width: 44px; }
@@ -115,11 +117,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .x-btn { background: none; border: none; color: var(--muted); font-size: 20px;
   line-height: 1; cursor: pointer; padding: 8px; margin: -8px; touch-action: manipulation;
   transition: color .15s; }
-.x-btn:active { color: var(--soft); }
+.x-btn:active { opacity: .4; }
 .clear-btn { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted);
   background: none; border: none; text-transform: uppercase; letter-spacing: .1em;
   cursor: pointer; touch-action: manipulation; transition: opacity .15s; }
-.clear-btn:active { opacity: .6; }
+.clear-btn:active { opacity: .4; }
 /* Focus */
 :focus-visible { outline: 2px solid var(--ir); outline-offset: 2px; border-radius: 4px; }
 /* Empty */
@@ -134,6 +136,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 #undo-toast.visible { display: flex; }
 #undo-btn { background: none; border: none; color: var(--ir); font-family: 'DM Mono', monospace;
   font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; letter-spacing: .06em; }
+#undo-btn:active { opacity: .5; }
 /* Simulation card */
 .pill-card--sim { border-color: rgba(91,184,245,.2); border-style: dashed; opacity: .8; }
 .sim-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim);
@@ -144,7 +147,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 <div id="app">
   <div class="header">
     <div class="title">Medikinetics</div>
-    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260425.1110</span></div>
+    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260425.1455</span></div>
   </div>
 
   <div class="stats-row">
