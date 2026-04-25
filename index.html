@@ -16,8 +16,8 @@
 :root {
   --bg: #080d17; --surface: #0f1623; --border: #1a2235;
   --muted: #2d3f57; --dim: #3a5070; --soft: #4a6080;
-  --text: #dce8f5; --ir: #5bb8f5; --cr: #b08860; --green: #4ecb8d;
-  --now: #ff6b6b; --clearing: #7a6248; --rising: #94b8d4;
+  --text: #dce8f5; --ir: #5bb8f5; --cr: #9d7fd4; --green: #4ecb8d;
+  --now: #ff6b6b; --clearing: #614f8a; --rising: #94b8d4;
   --toast-text: #8ba3be; --tooltip-bg: #0a1020;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bot: env(safe-area-inset-bottom, 0px);
@@ -220,11 +220,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 <script>
 // ── Med definitions ──────────────────────────────────────
 const MEDS = {
-  IRH: { label: 'IR ½', sublabel: '5mg split',     totalMg: 5,  color: '#5bb8f5',
+  IRH: { label: 'IR',   sublabel: '5mg',           totalMg: 5,  color: '#5bb8f5',
          phases: [{ offsetHours: 0, mg: 5,  durationHours: 4, ka: 2.0 }] },
-  IR:  { label: 'IR',   sublabel: 'Medikinet 10mg', totalMg: 10, color: '#5bb8f5',
+  IR:  { label: 'IR',   sublabel: '10mg',          totalMg: 10, color: '#5bb8f5',
          phases: [{ offsetHours: 0, mg: 10, durationHours: 4, ka: 2.0 }] },
-  CR:  { label: 'CR',   sublabel: 'Medikinet 20mg', totalMg: 20, color: '#b08860',
+  CR:  { label: 'CR',   sublabel: '20mg',          totalMg: 20, color: '#9d7fd4',
          phases:       [{ offsetHours: 0, mg: 10, durationHours: 4, ka: 2.0 },
                         { offsetHours: 4, mg: 10, durationHours: 4, ka: 0.7 }],
          // ka=1.0: judgment call — ER beads release early without food but bead matrix
