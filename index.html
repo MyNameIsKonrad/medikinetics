@@ -16,8 +16,8 @@
 :root {
   --bg: #080d17; --surface: #0f1623; --border: #1a2235;
   --muted: #2d3f57; --dim: #3a5070; --soft: #4a6080;
-  --text: #dce8f5; --ir: #5bb8f5; --cr: #f5a050; --green: #4ecb8d;
-  --now: #ff6b6b; --clearing: #a07840; --rising: #94b8d4;
+  --text: #dce8f5; --ir: #5bb8f5; --cr: #b08860; --green: #4ecb8d;
+  --now: #ff6b6b; --clearing: #7a6248; --rising: #94b8d4;
   --toast-text: #8ba3be; --tooltip-bg: #0a1020;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bot: env(safe-area-inset-bottom, 0px);
@@ -88,7 +88,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .fed-track { width: 36px; height: 20px; border-radius: 10px;
   background: var(--border); position: relative;
   transition: background .2s; flex-shrink: 0; }
-.fed-track--fed { background: rgba(245,160,80,.12); }
+.fed-track--fed { background: rgba(176,136,96,.18); }
 .fed-thumb { position: absolute; top: 2px; left: 2px;
   width: 16px; height: 16px; border-radius: 8px;
   background: var(--muted); transition: transform .2s, background .2s; }
@@ -156,7 +156,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 <div id="app">
   <div class="header">
     <div class="title">Medikinetics</div>
-    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260425.1837</span></div>
+    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260425.1846</span></div>
   </div>
 
   <div class="stats-row">
@@ -224,7 +224,7 @@ const MEDS = {
          phases: [{ offsetHours: 0, mg: 5,  durationHours: 4, ka: 2.0 }] },
   IR:  { label: 'IR',   sublabel: 'Medikinet 10mg', totalMg: 10, color: '#5bb8f5',
          phases: [{ offsetHours: 0, mg: 10, durationHours: 4, ka: 2.0 }] },
-  CR:  { label: 'CR',   sublabel: 'Medikinet 20mg', totalMg: 20, color: '#f5a050',
+  CR:  { label: 'CR',   sublabel: 'Medikinet 20mg', totalMg: 20, color: '#b08860',
          phases:       [{ offsetHours: 0, mg: 10, durationHours: 4, ka: 2.0 },
                         { offsetHours: 4, mg: 10, durationHours: 4, ka: 0.7 }],
          // ka=1.0: judgment call — ER beads release early without food but bead matrix
@@ -384,7 +384,27 @@ function toggleFed(id) {
   if (!pill) return;
   pill.fed = !pill.fed;
   savePills();
-  render();
+
+  // Toggle classes directly so the CSS slide transition plays (full render destroys the element)
+  const card = document.querySelector(`.pill-card[data-id="${id}"]`);
+  if (card) {
+    card.querySelector('.fed-track')?.classList.toggle('fed-track--fed', pill.fed);
+    const lbls = card.querySelectorAll('.fed-lbl');
+    lbls[0]?.classList.toggle('fed-lbl--on', !pill.fed);
+    lbls[1]?.classList.toggle('fed-lbl--on', pill.fed);
+  }
+
+  // Update chart + stats without rebuilding cards
+  const now    = Date.now();
+  const today  = pills.filter(p => p.takenAt > now - 24 * 3600000);
+  const inSys  = concAtTime(today, now);
+  const rising = concAtTime(today, now + 5 * 60000) > inSys;
+  const taken  = today.filter(p => p.takenAt >= startOfLocalDay()).reduce((s, p) => s + MEDS[p.type].totalMg, 0);
+  document.getElementById('val-taken').textContent  = taken;
+  document.getElementById('val-system').textContent = inSys.toFixed(1);
+  document.getElementById('label-system').innerHTML = rising
+    ? '<span style="color:var(--rising)">↑ rising</span>' : 'in system';
+  renderChart(today, simulatedPills, now);
 }
 
 function clearSim() {
@@ -749,7 +769,7 @@ function pillCardHTML(pill, now) {
   }
 
   return `
-    <div class="pill-card">
+    <div class="pill-card" data-id="${pill.id}">
       <div class="card-head">
         <div class="card-head-left">
           <span class="card-type" style="color:${def.color}">${def.label}</span>
