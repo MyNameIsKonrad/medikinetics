@@ -80,6 +80,7 @@ Vanilla JS and SVG. Google Fonts (DM Mono, Space Grotesk). No frameworks, no bui
 
 Not a medical device. Not medical advice. Consult a physician for dosing decisions.
 
+Im hella serious about this, i dont know what im doing, in fact, look away and dont use this.
 -----
 
 ## License
