@@ -62,17 +62,17 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .dose-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .dose-btn { display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 14px 8px; background: transparent; border: 1.5px solid; border-radius: 16px;
-  cursor: pointer; touch-action: manipulation; transition: opacity .15s, transform .1s; }
-.dose-btn:active { transform: scale(0.93); }
+  cursor: pointer; touch-action: manipulation; transition: opacity .15s, transform .15s ease-out; }
+.dose-btn.pressing, .dose-btn:active { transform: scale(0.91); transition: transform .08s ease-in; }
 .dose-btn-name { font-size: 16px; font-weight: 700; letter-spacing: .04em; }
 .dose-btn-sub { font-family: 'DM Mono', monospace; font-size: 10px; opacity: .6; }
 /* Offset chips */
 .offset-row { display: flex; gap: 8px; flex-wrap: nowrap; }
 .offset-chip { flex: 1; font-family: 'DM Mono', monospace; font-size: 11px; padding: 4px 8px;
   border-radius: 20px; border: 1px solid var(--border); background: transparent; text-align: center;
-  color: var(--dim); cursor: pointer; touch-action: manipulation; transition: border-color .15s, background .15s, color .15s, transform .1s; }
+  color: var(--dim); cursor: pointer; touch-action: manipulation; transition: border-color .15s, background .15s, color .15s, transform .15s ease-out; }
 .offset-chip.active { border-color: var(--ir); background: rgba(91,184,245,.12); color: var(--ir); }
-.offset-chip:active { transform: scale(0.92); }
+.offset-chip.pressing, .offset-chip:active { transform: scale(0.90); transition: border-color .15s, background .15s, color .15s, transform .08s ease-in; }
 .offset-chip-unset { opacity: .75; }
 .time-input-row { display: none; align-items: center; gap: 8px; margin-top: 8px; }
 /* Fed/fasted toggle on CR pill cards */
@@ -81,10 +81,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   font-family: 'DM Mono', monospace; font-size: 11px;
   padding: 4px 10px; border-radius: 20px; border: 1px solid var(--muted);
   background: rgba(74,96,128,.08); color: var(--soft); cursor: pointer;
-  touch-action: manipulation; transition: all .15s, transform .1s; margin-bottom: 8px; }
+  touch-action: manipulation; transition: border-color .15s, background .15s, color .15s, transform .15s ease-out; margin-bottom: 8px; }
 .fed-chip::before { content: '⇅'; font-size: 9px; opacity: .6; }
 .fed-chip--fed { border-color: #f5a050; background: rgba(245,160,80,.12); color: #f5a050; }
-.fed-chip:active { transform: scale(0.92); }
+.fed-chip.pressing, .fed-chip:active { transform: scale(0.90); transition: border-color .15s, background .15s, color .15s, transform .08s ease-in; }
 .manual-time-input { font-family: 'DM Mono', monospace; font-size: 12px;
   background: transparent; border: 1px solid var(--ir); border-radius: 8px;
   color: var(--text); padding: 5px 10px; width: 120px; color-scheme: dark; }
@@ -115,8 +115,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 /* Buttons */
 .x-btn { background: none; border: none; color: var(--muted); font-size: 20px;
   line-height: 1; cursor: pointer; padding: 8px; margin: -8px; touch-action: manipulation;
-  transition: transform .1s; }
-.x-btn:active { transform: scale(0.82); }
+  transition: transform .15s ease-out; }
+.x-btn.pressing, .x-btn:active { transform: scale(0.80); transition: transform .08s ease-in; }
 /* Focus */
 :focus-visible { outline: 2px solid var(--ir); outline-offset: 2px; border-radius: 4px; }
 /* Empty */
@@ -136,8 +136,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 @keyframes drain { from { width: 100%; } to { width: 0%; } }
 #undo-btn { background: none; border: none; color: var(--ir); font-family: 'DM Mono', monospace;
   font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; letter-spacing: .06em;
-  transition: transform .1s; }
-#undo-btn:active { transform: scale(0.90); }
+  transition: transform .15s ease-out; }
+#undo-btn.pressing, #undo-btn:active { transform: scale(0.88); transition: transform .08s ease-in; }
 /* Simulation card */
 .pill-card--sim { border-color: rgba(91,184,245,.2); border-style: dashed; opacity: .8; }
 .sim-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim);
@@ -148,7 +148,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 <div id="app">
   <div class="header">
     <div class="title">Medikinetics</div>
-    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260425.1757</span></div>
+    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260425.1811</span></div>
   </div>
 
   <div class="stats-row">
@@ -789,6 +789,27 @@ document.getElementById('manual-time-input').addEventListener('change', e => {
   offsetIdx = SCRUB_IDX;
   render();
 });
+
+// ── Press feedback (iOS :active workaround) ───────────────
+(function() {
+  const SEL = '.dose-btn, .offset-chip, .fed-chip, .x-btn, #undo-btn';
+  const MIN_MS = 90;
+  document.addEventListener('touchstart', e => {
+    const el = e.target.closest(SEL);
+    if (!el) return;
+    el.classList.add('pressing');
+    el._pressAt = Date.now();
+  }, { passive: true });
+  document.addEventListener('touchend', () => {
+    document.querySelectorAll('.pressing').forEach(el => {
+      const delay = Math.max(0, MIN_MS - (Date.now() - (el._pressAt || 0)));
+      setTimeout(() => el.classList.remove('pressing'), delay);
+    });
+  });
+  document.addEventListener('touchcancel', () => {
+    document.querySelectorAll('.pressing').forEach(el => el.classList.remove('pressing'));
+  });
+})();
 
 // ── Service Worker ────────────────────────────────────────
 if ('serviceWorker' in navigator) {
