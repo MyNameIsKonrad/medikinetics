@@ -24,7 +24,7 @@
 }
 html, body { height: 100%; background: var(--bg); color: var(--text);
   font-family: 'Space Grotesk', system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased; overscroll-behavior: none; }
+  -webkit-font-smoothing: antialiased; overscroll-behavior: none; touch-action: manipulation; }
 #app { max-width: 440px; margin: 0 auto;
   padding: calc(var(--safe-top) + 24px) 20px calc(var(--safe-bot) + 48px); }
 .mono { font-family: 'DM Mono', monospace; }
@@ -88,11 +88,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .fed-track { width: 36px; height: 20px; border-radius: 10px;
   background: var(--border); position: relative;
   transition: background .2s; flex-shrink: 0; }
-.fed-track--fed { background: rgba(245,160,80,.25); }
+.fed-track--fed { background: rgba(245,160,80,.12); }
 .fed-thumb { position: absolute; top: 2px; left: 2px;
   width: 16px; height: 16px; border-radius: 8px;
   background: var(--muted); transition: transform .2s, background .2s; }
-.fed-track--fed .fed-thumb { transform: translateX(16px); background: #f5a050; }
+.fed-track--fed .fed-thumb { transform: translateX(16px); background: #b08860; }
 .manual-time-input { font-family: 'DM Mono', monospace; font-size: 12px;
   background: transparent; border: 1px solid var(--ir); border-radius: 8px;
   color: var(--text); padding: 5px 10px; width: 120px; color-scheme: dark; }
@@ -156,7 +156,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 <div id="app">
   <div class="header">
     <div class="title">Medikinetics</div>
-    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260425.1823</span></div>
+    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260425.1837</span></div>
   </div>
 
   <div class="stats-row">
