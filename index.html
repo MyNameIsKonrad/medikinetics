@@ -72,7 +72,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   border-radius: 20px; border: 1px solid var(--border); background: transparent; text-align: center;
   color: var(--dim); cursor: pointer; touch-action: manipulation; transition: all .15s; }
 .offset-chip.active { border-color: var(--ir); background: rgba(91,184,245,.12); color: var(--ir); }
-.offset-chip-unset { opacity: .4; }
+.offset-chip-unset { opacity: .75; }
 .time-input-row { display: none; align-items: center; gap: 8px; margin-top: 8px; }
 /* Fed/fasted toggle on CR pill cards */
 .pill-card:has(.fed-chip) .card-head { margin-bottom: 8px; }
@@ -144,7 +144,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 <div id="app">
   <div class="header">
     <div class="title">Medikinetics</div>
-    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260424.2247</span></div>
+    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260425.1110</span></div>
   </div>
 
   <div class="stats-row">
@@ -636,7 +636,7 @@ function render() {
 
   // Offset chips
   const or = document.getElementById('offset-row');
-  const scrubLabel = scrubTime ? scrubTime.label : '·  ·';
+  const scrubLabel = scrubTime ? scrubTime.label : '--:--';
   or.innerHTML =
     `<button class="offset-chip ${offsetIdx === SCRUB_IDX ? 'active' : ''} ${!scrubTime ? 'offset-chip-unset' : ''}" onclick="selectScrubChip()">${scrubLabel}</button>` +
     OFFSETS.map((o, i) => `<button class="offset-chip ${i === offsetIdx ? 'active' : ''}" onclick="setOffset(${i})">${o.label}</button>`).join('');
@@ -678,6 +678,13 @@ function selectScrubChip() {
   document.querySelectorAll('#offset-row .offset-chip').forEach((btn, i) => {
     btn.classList.toggle('active', i === 0);
   });
+  const input = document.getElementById('manual-time-input');
+  if (scrubTime) {
+    input.value = scrubTime.label;
+  } else {
+    const d = new Date();
+    input.value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
   document.getElementById('time-input-row').style.display = 'flex';
 }
 
@@ -786,7 +793,6 @@ document.getElementById('manual-time-input').addEventListener('change', e => {
   const ts = d.getTime() > Date.now() ? d.getTime() - 86400000 : d.getTime();
   scrubTime = { ts, label: val };
   offsetIdx = SCRUB_IDX;
-  document.getElementById('time-input-row').style.display = 'none';
   render();
 });
 
