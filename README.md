@@ -28,9 +28,9 @@ One-compartment oral absorption model tuned to published methylphenidate paramet
 
 **CR formulation — fed:** Medikinet CR is a 50/50 bead formulation. The fed model represents this as two sequential phases: 10mg IR beads at hour 0 (ka=2.0) and 10mg enteric-coated delayed-release beads at hour +4 (ka=0.7), producing the intended biphasic plasma profile.
 
-**CR formulation — fasted (default):** Without food, the enteric coating's programmed delay fails and the full dose front-loads into a single peak. The fasted model uses a single phase: 20mg, ka=1.0. ka=1.0 is a judgment call — slower than pure IR (2.0) to reflect residual bead-matrix retardation, faster than the fed delayed phase (0.7) — consistent with Haessler et al. 2008 reporting a “steady absorption / single Tmax” profile for Medikinet under fasted conditions. Each CR pill card defaults to fasted; tap the chip to switch to the fed model for that dose.
+**CR formulation — fasted (default):** Without food, the enteric coating's programmed delay fails and the full dose front-loads into a single peak. The fasted model uses a single phase: 20mg, ka=1.0. ka=1.0 is a judgment call — slower than pure IR (2.0) to reflect residual bead-matrix retardation, faster than the fed delayed phase (0.7) — consistent with Haessler et al. 2008 reporting a "steady absorption / single Tmax" profile for Medikinet under fasted conditions. Each CR pill card defaults to fasted; tap the toggle switch to switch to the fed model for that dose.
 
-**Caveat:** Population-average model. Individual pharmacokinetics vary based on body weight, food intake, CES1 enzyme activity, and other factors. All curve output is labeled “model estimate.”
+**Caveat:** Population-average model. Individual pharmacokinetics vary based on body weight, food intake, CES1 enzyme activity, and other factors. All curve output is labeled "model estimate."
 
 -----
 
@@ -39,13 +39,14 @@ One-compartment oral absorption model tuned to published methylphenidate paramet
 - Live concentration curve, updates every 30 seconds
 - Two stats: **taken today** (calendar-day mg sum) and **in system** (PK model estimate in mg-equivalent units — normalized to the IR reference, not plasma ng/mL)
 - Rising indicator for the absorption phase post-dose
-- Fed/fasted toggle per CR dose — fasted is the default; tap the ⇅ chip on the pill card to switch to the with-food biphasic model, updating the curve immediately
+- Fed/fasted toggle per CR dose — fasted is the default; tap the toggle switch on the pill card to switch to the with-food biphasic model, updating the curve immediately
 - Backdating via offset chips: now / -30m / -1h / -2h / -3h
 - Custom time entry and chart scrubber chip — scrub the chart to a past time then log a dose at that exact moment
-- Simulate future dose – scrub to a fiture time, tap the custom entry, and log a dose to see a temporary overlay
+- Simulate future dose — scrub to a future time, tap the custom entry, and log a dose to see a temporary overlay
 - Crosshair intersection dots on the concentration curve
 - "Now" marker on the timeline
-- Undo delete, 8-second window
+- Undo delete, 8-second window with drain indicator
+- Press feedback on all interactive controls — scale transform with 400ms cooldown after logging
 - LocalStorage persistence, auto-purge after 48h
 - Service worker for offline use and update-safe caching
 
@@ -53,7 +54,7 @@ One-compartment oral absorption model tuned to published methylphenidate paramet
 
 ## Accessibility
 
-Blue (`#5bb8f5`) for IR doses, orange (`#f5a050`) for CR — selected for deutan (red-green) color vision deficiency.
+Blue (`#5bb8f5`) for IR doses, warm brown (`#b08860`) for CR — selected for deutan (red-green) color vision deficiency.
 
 -----
 
@@ -81,6 +82,7 @@ Vanilla JS and SVG. Google Fonts (DM Mono, Space Grotesk). No frameworks, no bui
 Not a medical device. Not medical advice. Consult a physician for dosing decisions.
 
 Im hella serious about this, i dont know what im doing, in fact, look away and dont use this.
+
 -----
 
 ## License
