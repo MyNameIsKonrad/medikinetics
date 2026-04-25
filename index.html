@@ -64,6 +64,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   padding: 14px 8px; background: transparent; border: 1.5px solid; border-radius: 16px;
   cursor: pointer; touch-action: manipulation; transition: opacity .15s, transform .15s ease-out; }
 .dose-btn.pressing, .dose-btn:active { transform: scale(0.91); transition: transform .08s ease-in; }
+.dose-btn.just-fired { opacity: .35; }
 .dose-btn-name { font-size: 16px; font-weight: 700; letter-spacing: .04em; }
 .dose-btn-sub { font-family: 'DM Mono', monospace; font-size: 10px; opacity: .6; }
 /* Offset chips */
@@ -148,7 +149,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 <div id="app">
   <div class="header">
     <div class="title">Medikinetics</div>
-    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260425.1811</span></div>
+    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260425.1821</span></div>
   </div>
 
   <div class="stats-row">
@@ -327,7 +328,6 @@ let scrubTime = null; // { ts, label } — set by chart scrub or manual entry
 let undoItem  = null;
 let undoTimer = null;
 let hideTimer = null;
-let _lastLog  = 0;
 
 function loadPills() {
   try {
@@ -347,19 +347,22 @@ function savePills() {
 
 function logPill(type) {
   const now = Date.now();
-  if (now - _lastLog < 800) return;
   const rawAt = offsetIdx === SCRUB_IDX && scrubTime
     ? scrubTime.ts
     : now - OFFSETS[offsetIdx].ms;
 
   if (rawAt > now) {
-    // Future time → preview only, not persisted; don't consume debounce budget
+    // Future time → preview only, not persisted
     simulatedPills = [{ id: now, type, takenAt: rawAt, sim: true, ...(type === 'CR' ? { fed: false } : {}) }];
     render();
     return;
   }
 
-  _lastLog = now;
+  document.querySelectorAll('.dose-btn').forEach(b => {
+    b.disabled = true;
+    b.classList.add('just-fired');
+    setTimeout(() => { b.disabled = false; b.classList.remove('just-fired'); }, 400);
+  });
   simulatedPills = [];
   pills = [{ id: now, type, takenAt: Math.min(now, rawAt), ...(type === 'CR' ? { fed: false } : {}) }, ...pills];
   savePills();
@@ -796,7 +799,7 @@ document.getElementById('manual-time-input').addEventListener('change', e => {
   const MIN_MS = 90;
   document.addEventListener('touchstart', e => {
     const el = e.target.closest(SEL);
-    if (!el) return;
+    if (!el || el.disabled) return;
     el.classList.add('pressing');
     el._pressAt = Date.now();
   }, { passive: true });
