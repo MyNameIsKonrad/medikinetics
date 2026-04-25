@@ -61,7 +61,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 /* Dose buttons */
 .dose-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .dose-btn { display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 14px 8px; background: transparent; border: 1.5px solid; border-radius: 16px;
+  padding: 14px 8px; background: transparent; border: 1.5px solid var(--muted); border-radius: 16px;
   cursor: pointer; touch-action: manipulation; transition: opacity .15s, transform .15s ease-out; }
 .dose-btn.pressing, .dose-btn:active { transform: scale(0.91); transition: transform .08s ease-in; }
 .dose-btn.just-fired { opacity: .35; }
@@ -88,11 +88,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .fed-track { width: 36px; height: 20px; border-radius: 10px;
   background: var(--border); position: relative;
   transition: background .2s; flex-shrink: 0; }
-.fed-track--fed { background: rgba(176,136,96,.18); }
+.fed-track--fed { background: rgba(78,203,141,.18); }
 .fed-thumb { position: absolute; top: 2px; left: 2px;
   width: 16px; height: 16px; border-radius: 8px;
   background: var(--muted); transition: transform .2s, background .2s; }
-.fed-track--fed .fed-thumb { transform: translateX(16px); background: #b08860; }
+.fed-track--fed .fed-thumb { transform: translateX(16px); background: #4ecb8d; }
 .manual-time-input { font-family: 'DM Mono', monospace; font-size: 12px;
   background: transparent; border: 1px solid var(--ir); border-radius: 8px;
   color: var(--text); padding: 5px 10px; width: 120px; color-scheme: dark; }
@@ -650,7 +650,6 @@ function render() {
     Object.entries(MEDS).forEach(([type, def]) => {
       const btn = document.createElement('button');
       btn.className = 'dose-btn';
-      btn.style.borderColor = def.color;
       btn.style.color = def.color;
       btn.innerHTML = `<span class="dose-btn-name">${def.label}</span><span class="dose-btn-sub">${def.sublabel}</span>`;
       btn.onclick = () => logPill(type);
