@@ -62,17 +62,17 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .dose-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .dose-btn { display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 14px 8px; background: transparent; border: 1.5px solid; border-radius: 16px;
-  cursor: pointer; touch-action: manipulation; transition: opacity .15s; }
-.dose-btn:active { opacity: .45; }
+  cursor: pointer; touch-action: manipulation; transition: opacity .15s, transform .1s; }
+.dose-btn:active { transform: scale(0.93); }
 .dose-btn-name { font-size: 16px; font-weight: 700; letter-spacing: .04em; }
 .dose-btn-sub { font-family: 'DM Mono', monospace; font-size: 10px; opacity: .6; }
 /* Offset chips */
 .offset-row { display: flex; gap: 8px; flex-wrap: nowrap; }
 .offset-chip { flex: 1; font-family: 'DM Mono', monospace; font-size: 11px; padding: 4px 8px;
   border-radius: 20px; border: 1px solid var(--border); background: transparent; text-align: center;
-  color: var(--dim); cursor: pointer; touch-action: manipulation; transition: all .15s; }
+  color: var(--dim); cursor: pointer; touch-action: manipulation; transition: border-color .15s, background .15s, color .15s, transform .1s; }
 .offset-chip.active { border-color: var(--ir); background: rgba(91,184,245,.12); color: var(--ir); }
-.offset-chip:active { opacity: .45; }
+.offset-chip:active { transform: scale(0.92); }
 .offset-chip-unset { opacity: .75; }
 .time-input-row { display: none; align-items: center; gap: 8px; margin-top: 8px; }
 /* Fed/fasted toggle on CR pill cards */
@@ -81,10 +81,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   font-family: 'DM Mono', monospace; font-size: 11px;
   padding: 4px 10px; border-radius: 20px; border: 1px solid var(--muted);
   background: rgba(74,96,128,.08); color: var(--soft); cursor: pointer;
-  touch-action: manipulation; transition: all .15s; margin-bottom: 8px; }
+  touch-action: manipulation; transition: all .15s, transform .1s; margin-bottom: 8px; }
 .fed-chip::before { content: '⇅'; font-size: 9px; opacity: .6; }
 .fed-chip--fed { border-color: #f5a050; background: rgba(245,160,80,.12); color: #f5a050; }
-.fed-chip:active { opacity: .45; }
+.fed-chip:active { transform: scale(0.92); }
 .manual-time-input { font-family: 'DM Mono', monospace; font-size: 12px;
   background: transparent; border: 1px solid var(--ir); border-radius: 8px;
   color: var(--text); padding: 5px 10px; width: 120px; color-scheme: dark; }
@@ -105,7 +105,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
 .fill-bar { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
 /* Log */
-.log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .log-row { display: flex; align-items: center; gap: 8px;
   padding: 12px 0; border-bottom: 1px solid var(--surface); }
 .log-row.expired { opacity: .3; }
@@ -116,12 +115,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 /* Buttons */
 .x-btn { background: none; border: none; color: var(--muted); font-size: 20px;
   line-height: 1; cursor: pointer; padding: 8px; margin: -8px; touch-action: manipulation;
-  transition: color .15s; }
-.x-btn:active { opacity: .4; }
-.clear-btn { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted);
-  background: none; border: none; text-transform: uppercase; letter-spacing: .1em;
-  cursor: pointer; touch-action: manipulation; transition: opacity .15s; }
-.clear-btn:active { opacity: .4; }
+  transition: transform .1s; }
+.x-btn:active { transform: scale(0.82); }
 /* Focus */
 :focus-visible { outline: 2px solid var(--ir); outline-offset: 2px; border-radius: 4px; }
 /* Empty */
@@ -132,11 +127,17 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   background: var(--border); border: 1px solid var(--soft); border-radius: 12px;
   padding: 12px 18px; display: none; align-items: center; gap: 14px;
   font-family: 'DM Mono', monospace; font-size: 12px; color: var(--toast-text);
-  box-shadow: 0 4px 24px rgba(0,0,0,.5); white-space: nowrap; z-index: 100; }
+  box-shadow: 0 4px 24px rgba(0,0,0,.5); white-space: nowrap; z-index: 100;
+  overflow: hidden; }
 #undo-toast.visible { display: flex; }
+#undo-toast.visible::after { content: ''; position: absolute; bottom: 0; left: 0;
+  height: 2px; background: var(--ir); border-radius: 0 0 12px 12px;
+  animation: drain 8s linear forwards; }
+@keyframes drain { from { width: 100%; } to { width: 0%; } }
 #undo-btn { background: none; border: none; color: var(--ir); font-family: 'DM Mono', monospace;
-  font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; letter-spacing: .06em; }
-#undo-btn:active { opacity: .5; }
+  font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; letter-spacing: .06em;
+  transition: transform .1s; }
+#undo-btn:active { transform: scale(0.90); }
 /* Simulation card */
 .pill-card--sim { border-color: rgba(91,184,245,.2); border-style: dashed; opacity: .8; }
 .sim-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim);
@@ -147,7 +148,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 <div id="app">
   <div class="header">
     <div class="title">Medikinetics</div>
-    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260425.1455</span></div>
+    <div class="sub">Medikinet IR · CR <span style="opacity:.4">· 20260425.1757</span></div>
   </div>
 
   <div class="stats-row">
@@ -196,10 +197,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   </div>
 
   <div class="section" id="section-log" style="display:none">
-    <div class="log-header">
-      <div class="section-label" style="margin-bottom:0">log (24h)</div>
-      <button class="clear-btn" onclick="clearOld()">clear old</button>
-    </div>
+    <div class="section-label">log (24h)</div>
     <div id="log-container"></div>
   </div>
 
@@ -403,13 +401,6 @@ function undoRemove() {
   savePills();
   undoItem = null;
   hideUndo();
-  render();
-}
-
-function clearOld() {
-  const cutoff = Date.now() - 24 * 3600000;
-  pills = pills.filter(p => p.takenAt > cutoff);
-  savePills();
   render();
 }
 
