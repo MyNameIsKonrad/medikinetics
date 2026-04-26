@@ -14,7 +14,7 @@ Check `git log` for the latest. Phases completed so far:
 - Phase 9: isRising uses PK slope; clearing bar removed; this file added
 - Phase 10: Bateman equal-rate limit fix (PR #19); fasted CR model (single phase 20mg ka=1.0, default); per-dose fed/fasted toggle chip on pill cards; GitHub Issues workflow established
 - UX pass (PRs #23–#29): design tokens, Space Grotesk + DM Mono typography, interactive affordances, scale-transform press feedback (JS touchstart handler for iOS), undo toast drain bar, fed/fasted chip → toggle switch (direct DOM update in toggleFed for CSS transition), silent debounce → 400ms `.just-fired` disable, CR orange muted (#f5a050 → #b08860), double-tap zoom prevention
-- Color clarification (PRs #33–#34): dose button borders → neutral --muted; fed toggle → --green; CR recolored to lavender (#9d7fd4); button sublabels simplified to "5mg" / "10mg" / "20mg"
+- Color clarification (PRs #33–#34): dose button borders → neutral --muted; fed toggle → --green; CR recolored to lavender (#9d7fd4); button sublabels simplified to "5mg" / "10mg" / "20mg"; dose buttons neutral (no type color — color lives on graph + cards only)
 
 ## Key architectural decisions
 - Single-file: all app logic lives in `index.html`. Keep it that way.

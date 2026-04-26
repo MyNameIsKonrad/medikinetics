@@ -650,7 +650,6 @@ function render() {
     Object.entries(MEDS).forEach(([type, def]) => {
       const btn = document.createElement('button');
       btn.className = 'dose-btn';
-      btn.style.color = def.color;
       btn.innerHTML = `<span class="dose-btn-name">${def.label}</span><span class="dose-btn-sub">${def.sublabel}</span>`;
       btn.onclick = () => logPill(type);
       dg.appendChild(btn);
