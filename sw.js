@@ -1,5 +1,5 @@
 // Medikinetics Service Worker v3
-const VERSION = 'medikinetics-20260425.1857';
+const VERSION = 'medikinetics-20260426.1643';
 const CACHE   = VERSION;
 const ASSETS  = ['./index.html'];
 

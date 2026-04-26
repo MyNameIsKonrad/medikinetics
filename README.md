@@ -41,8 +41,8 @@ One-compartment oral absorption model tuned to published methylphenidate paramet
 - Rising indicator for the absorption phase post-dose
 - Fed/fasted toggle per CR dose — fasted is the default; tap the toggle switch on the pill card to switch to the with-food biphasic model, updating the curve immediately
 - Backdating via offset chips: now / -30m / -1h / -2h / -3h
-- Custom time entry and chart scrubber chip — scrub the chart to a past time then log a dose at that exact moment
-- Simulate future dose — scrub to a future time, tap the custom entry, and log a dose to see a temporary overlay
+- Exact-time chip — tap the first chip for native time entry, or scrub the chart to set it, then log a dose at that exact moment
+- Simulate future dose — scrub to a future time, use the exact-time chip, and log a dose to see a temporary overlay
 - Crosshair intersection dots on the concentration curve
 - "Now" marker on the timeline
 - Undo delete, 8-second window with drain indicator
