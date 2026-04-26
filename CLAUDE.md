@@ -14,6 +14,7 @@ Check `git log` for the latest. Phases completed so far:
 - Phase 9: isRising uses PK slope; clearing bar removed; this file added
 - Phase 10: Bateman equal-rate limit fix (PR #19); fasted CR model (single phase 20mg ka=1.0, default); per-dose fed/fasted toggle chip on pill cards; GitHub Issues workflow established
 - UX pass (PRs #23–#29): design tokens, Space Grotesk + DM Mono typography, interactive affordances, scale-transform press feedback (JS touchstart handler for iOS), undo toast drain bar, fed/fasted chip → toggle switch (direct DOM update in toggleFed for CSS transition), silent debounce → 400ms `.just-fired` disable, CR orange muted (#f5a050 → #b08860), double-tap zoom prevention
+- Color clarification (PRs #33–#34): dose button borders → neutral --muted; fed toggle → --green; CR recolored to lavender (#9d7fd4); button sublabels simplified to "5mg" / "10mg" / "20mg"
 
 ## Key architectural decisions
 - Single-file: all app logic lives in `index.html`. Keep it that way.
@@ -25,7 +26,7 @@ Check `git log` for the latest. Phases completed so far:
 - `html, body` has `touch-action: manipulation` — blocks iOS double-tap zoom globally without disabling pinch zoom
 - `.pill-card` carries `data-id="${pill.id}"`. `toggleFed()` updates toggle DOM directly (class toggles on `.fed-track` and `.fed-lbl` only) then calls `renderChart()` + stats inline — does NOT call `render()`, so the `.2s` CSS slide transition plays on the thumb
 - Dose button debounce removed. After a real log, all `.dose-btn` get `disabled` + `.just-fired` (opacity .35) for 400ms. The `touchstart` handler skips `disabled` elements — feedback and action stay in sync
-- `--cr: #b08860` (muted warm brown); `--clearing: #7a6248`. `MEDS.CR.color` must match `--cr`
+- `--cr: #9d7fd4` (lavender/violet); `--clearing: #614f8a`. `MEDS.CR.color` must match `--cr`
 
 ## Workflow — follow exactly
 1. Read `git log` and recent merged PRs to understand current state before starting
