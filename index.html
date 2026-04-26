@@ -62,7 +62,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .dose-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .dose-btn { display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 14px 8px; background: transparent; border: 1.5px solid var(--muted); border-radius: 16px;
-  cursor: pointer; touch-action: manipulation; transition: opacity .15s, transform .15s ease-out; }
+  color: var(--text); cursor: pointer; touch-action: manipulation; transition: opacity .15s, transform .15s ease-out; }
 .dose-btn.pressing, .dose-btn:active { transform: scale(0.91); transition: transform .08s ease-in; }
 .dose-btn.just-fired { opacity: .35; }
 .dose-btn-name { font-size: 16px; font-weight: 700; letter-spacing: .04em; }
@@ -75,7 +75,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .offset-chip.active { border-color: var(--ir); background: rgba(91,184,245,.12); color: var(--ir); }
 .offset-chip.pressing, .offset-chip:active { transform: scale(0.90); transition: border-color .15s, background .15s, color .15s, transform .08s ease-in; }
 .offset-chip-unset { opacity: .75; }
-.time-input-row { display: none; align-items: center; gap: 8px; margin-top: 8px; }
+.exact-time-chip { flex: 1.25; min-width: 0; height: auto; color-scheme: dark; -webkit-appearance: none; appearance: none; }
+.exact-time-chip::-webkit-calendar-picker-indicator { opacity: .65; filter: invert(69%) sepia(20%) saturate(787%) hue-rotate(176deg); }
 /* Fed/fasted toggle switch on CR pill cards */
 .pill-card:has(.fed-toggle) .card-head { margin-bottom: 8px; }
 .fed-toggle { display: inline-flex; align-items: center; gap: 8px;
@@ -93,9 +94,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   width: 16px; height: 16px; border-radius: 8px;
   background: var(--muted); transition: transform .2s, background .2s; }
 .fed-track--fed .fed-thumb { transform: translateX(16px); background: #4ecb8d; }
-.manual-time-input { font-family: 'DM Mono', monospace; font-size: 12px;
-  background: transparent; border: 1px solid var(--ir); border-radius: 8px;
-  color: var(--text); padding: 5px 10px; width: 120px; color-scheme: dark; }
 /* Card */
 .pill-card { background: var(--surface); border: 1px solid var(--border);
   border-radius: 16px; padding: 16px; margin-bottom: 12px; }
@@ -156,7 +154,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 <div id="app">
   <div class="header">
     <div class="title">Medikinetics</div>
-    <div class="sub"><span style="opacity:.4">20260425.1857</span></div>
+    <div class="sub"><span style="opacity:.4">20260426.1643</span></div>
   </div>
 
   <div class="stats-row">
@@ -193,10 +191,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
     <div class="section-label">log dose</div>
     <div class="dose-grid" id="dose-grid"></div>
     <div class="offset-row" id="offset-row"></div>
-    <div class="time-input-row" id="time-input-row">
-      <input type="time" id="manual-time-input" class="manual-time-input">
-      <span class="section-label" style="margin:0">set time</span>
-    </div>
   </div>
 
   <div class="section" id="section-progress" style="display:none">
@@ -305,6 +299,17 @@ function getCurveWindow(pills, now) {
 // ── Helpers ───────────────────────────────────────────────
 const fmt = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 function startOfLocalDay() { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
+function timeInputValue(ts) {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+function timestampForTimeInput(val) {
+  const [h, m] = val.split(':').map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  // Manual future times are almost always missed past doses; chart scrub keeps true future timestamps.
+  return d.getTime() > Date.now() ? d.getTime() - 86400000 : d.getTime();
+}
 const phaseStart = (ph, t) => t + ph.offsetHours * 3600000;
 const phaseEnd   = (ph, t) => phaseStart(ph, t) + ph.durationHours * 3600000;
 
@@ -354,8 +359,8 @@ function savePills() {
 
 function logPill(type) {
   const now = Date.now();
-  const rawAt = offsetIdx === SCRUB_IDX && scrubTime
-    ? scrubTime.ts
+  const rawAt = offsetIdx === SCRUB_IDX
+    ? (scrubTime?.ts ?? now)
     : now - OFFSETS[offsetIdx].ms;
 
   if (rawAt > now) {
@@ -375,7 +380,6 @@ function logPill(type) {
   savePills();
   offsetIdx = OFFSETS.length - 1;
   scrubTime = null;
-  document.getElementById('time-input-row').style.display = 'none';
   render();
 }
 
@@ -384,6 +388,7 @@ function toggleFed(id) {
   if (!pill) return;
   pill.fed = !pill.fed;
   savePills();
+  const now = Date.now();
 
   // Toggle classes directly so the CSS slide transition plays (full render destroys the element)
   const card = document.querySelector(`.pill-card[data-id="${id}"]`);
@@ -392,10 +397,10 @@ function toggleFed(id) {
     const lbls = card.querySelectorAll('.fed-lbl');
     lbls[0]?.classList.toggle('fed-lbl--on', !pill.fed);
     lbls[1]?.classList.toggle('fed-lbl--on', pill.fed);
+    updatePillCardBody(pill, now);
   }
 
   // Update chart + stats without rebuilding cards
-  const now    = Date.now();
   const today  = pills.filter(p => p.takenAt > now - 24 * 3600000);
   const inSys  = concAtTime(today, now);
   const rising = concAtTime(today, now + 5 * 60000) > inSys;
@@ -576,11 +581,11 @@ function renderChart(today, simulated, now) {
     crosshair.setAttribute('x1', cx);
     crosshair.setAttribute('x2', cx);
     // scrub chip — write time without re-render (past or future, for inspection)
-    scrubTime = { ts: closest.ts, label: fmt(closest.ts) };
-    const scrubChip = document.querySelector('#offset-row .offset-chip');
-    if (scrubChip) {
-      scrubChip.textContent = scrubTime.label;
-      scrubChip.classList.remove('offset-chip-unset');
+    scrubTime = { ts: closest.ts, label: timeInputValue(closest.ts) };
+    const exactChip = document.getElementById('manual-time-input');
+    if (exactChip) {
+      exactChip.value = scrubTime.label;
+      exactChip.classList.remove('offset-chip-unset');
     }
     // intersection dots
     const dotLayer = document.getElementById('dot-layer');
@@ -660,7 +665,7 @@ function render() {
   const or = document.getElementById('offset-row');
   const scrubLabel = scrubTime ? scrubTime.label : '--:--';
   or.innerHTML =
-    `<button class="offset-chip ${offsetIdx === SCRUB_IDX ? 'active' : ''} ${!scrubTime ? 'offset-chip-unset' : ''}" onclick="selectScrubChip()">${scrubLabel}</button>` +
+    `<input type="time" id="manual-time-input" class="offset-chip exact-time-chip ${offsetIdx === SCRUB_IDX ? 'active' : ''} ${!scrubTime ? 'offset-chip-unset' : ''}" value="${scrubTime ? scrubLabel : ''}" aria-label="Exact dose time">` +
     OFFSETS.map((o, i) => `<button class="offset-chip ${i === offsetIdx ? 'active' : ''}" onclick="setOffset(${i})">${o.label}</button>`).join('');
 
   // In progress — sim cards first, then active confirmed doses
@@ -691,23 +696,67 @@ function render() {
 function setOffset(i) {
   offsetIdx = i;
   simulatedPills = [];
-  document.getElementById('time-input-row').style.display = 'none';
   render();
 }
 
-function selectScrubChip() {
+function selectExactTimeChip() {
   offsetIdx = SCRUB_IDX;
-  document.querySelectorAll('#offset-row .offset-chip').forEach((btn, i) => {
-    btn.classList.toggle('active', i === 0);
-  });
   const input = document.getElementById('manual-time-input');
-  if (scrubTime) {
-    input.value = scrubTime.label;
-  } else {
-    const d = new Date();
-    input.value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  if (input && !input.value) {
+    input.value = timeInputValue(Date.now());
   }
-  document.getElementById('time-input-row').style.display = 'flex';
+  if (input && input.value && !scrubTime) {
+    scrubTime = { ts: timestampForTimeInput(input.value), label: input.value };
+  }
+  document.querySelectorAll('#offset-row .offset-chip').forEach(btn => {
+    btn.classList.toggle('active', btn.id === 'manual-time-input');
+  });
+}
+
+function pillCardBodyHTML(pill, now) {
+  const def = MEDS[pill.type];
+  const phases  = phasesFor(pill);
+  const allDone = phases.every(ph => phaseStatus(ph, pill.takenAt, now) === 'done');
+
+  if (allDone) {
+    const conc      = concAtTime([pill], now);
+    const threshold = def.totalMg * 0.1;
+    const minsLeft  = conc > threshold ? Math.round((Math.log(conc / threshold) / KE) * 60) : 0;
+    const timeStr   = durStr(minsLeft * 60000) ?? '—';
+    return `
+      <div class="phase-row">
+        <div class="phase-top">
+          <span class="phase-mg" style="color:var(--soft)">clearing · ${conc.toFixed(1)} mg eq</span>
+          <span class="phase-time">${timeStr} left</span>
+        </div>
+      </div>`;
+  }
+
+  return phases.map((ph, i) => {
+    const st  = phaseStatus(ph, pill.takenAt, now);
+    const pct = phasePct(ph, pill.takenAt, now);
+    const left  = durStr(phaseEnd(ph, pill.takenAt) - now);
+    const until = durStr(phaseStart(ph, pill.takenAt) - now);
+    const color  = st === 'active' ? def.color : st === 'pending' ? 'var(--soft)' : 'var(--muted)';
+    const fillBg = st === 'active' ? def.color : 'var(--border)';
+    const tag  = i > 0 ? `<span class="phase-tag">+${ph.offsetHours}h release</span>` : '';
+    const time = st === 'active' && left   ? `${left} left`
+               : st === 'pending' && until ? `in ${until}` : 'done';
+    return `
+      <div class="phase-row">
+        <div class="phase-top">
+          <span class="phase-mg" style="color:${color}">${ph.mg} mg${tag}</span>
+          <span class="phase-time">${time}</span>
+        </div>
+        <div class="track"><div class="fill-bar" style="width:${pct}%;background:${fillBg}"></div></div>
+      </div>`;
+  }).join('');
+}
+
+function updatePillCardBody(pill, now) {
+  const card = document.querySelector(`.pill-card[data-id="${pill.id}"]`);
+  const body = card?.querySelector('.pill-body');
+  if (body) body.innerHTML = pillCardBodyHTML(pill, now);
 }
 
 function pillCardHTML(pill, now) {
@@ -728,44 +777,6 @@ function pillCardHTML(pill, now) {
     </div>`;
   }
 
-  const phases  = phasesFor(pill);
-  const allDone = phases.every(ph => phaseStatus(ph, pill.takenAt, now) === 'done');
-
-  let body;
-  if (allDone) {
-    const conc      = concAtTime([pill], now);
-    const threshold = def.totalMg * 0.1;
-    const minsLeft  = conc > threshold ? Math.round((Math.log(conc / threshold) / KE) * 60) : 0;
-    const timeStr   = durStr(minsLeft * 60000) ?? '—';
-    body = `
-      <div class="phase-row">
-        <div class="phase-top">
-          <span class="phase-mg" style="color:var(--soft)">clearing · ${conc.toFixed(1)} mg eq</span>
-          <span class="phase-time">${timeStr} left</span>
-        </div>
-      </div>`;
-  } else {
-    body = phases.map((ph, i) => {
-      const st  = phaseStatus(ph, pill.takenAt, now);
-      const pct = phasePct(ph, pill.takenAt, now);
-      const left  = durStr(phaseEnd(ph, pill.takenAt) - now);
-      const until = durStr(phaseStart(ph, pill.takenAt) - now);
-      const color  = st === 'active' ? def.color : st === 'pending' ? 'var(--soft)' : 'var(--muted)';
-      const fillBg = st === 'active' ? def.color : 'var(--border)';
-      const tag  = i > 0 ? `<span class="phase-tag">+${ph.offsetHours}h release</span>` : '';
-      const time = st === 'active' && left   ? `${left} left`
-                 : st === 'pending' && until ? `in ${until}` : 'done';
-      return `
-        <div class="phase-row">
-          <div class="phase-top">
-            <span class="phase-mg" style="color:${color}">${ph.mg} mg${tag}</span>
-            <span class="phase-time">${time}</span>
-          </div>
-          <div class="track"><div class="fill-bar" style="width:${pct}%;background:${fillBg}"></div></div>
-        </div>`;
-    }).join('');
-  }
-
   return `
     <div class="pill-card" data-id="${pill.id}">
       <div class="card-head">
@@ -782,7 +793,7 @@ function pillCardHTML(pill, now) {
         <div class="fed-track${pill.fed ? ' fed-track--fed' : ''}"><div class="fed-thumb"></div></div>
         <span class="fed-lbl${pill.fed ? ' fed-lbl--on' : ''}">food</span>
       </div>` : ''}
-      ${body}
+      <div class="pill-body">${pillCardBodyHTML(pill, now)}</div>
     </div>`;
 }
 
@@ -810,15 +821,17 @@ pills = loadPills();
 render();
 setInterval(render, 30000);
 
-document.getElementById('manual-time-input').addEventListener('change', e => {
+document.addEventListener('focusin', e => {
+  if (e.target.id === 'manual-time-input') selectExactTimeChip();
+});
+document.addEventListener('click', e => {
+  if (e.target.id === 'manual-time-input') selectExactTimeChip();
+});
+document.addEventListener('change', e => {
+  if (e.target.id !== 'manual-time-input') return;
   const val = e.target.value; // "HH:MM"
   if (!val) return;
-  const [h, m] = val.split(':').map(Number);
-  const d = new Date();
-  d.setHours(h, m, 0, 0);
-  // if the resulting time is in the future, assume yesterday
-  const ts = d.getTime() > Date.now() ? d.getTime() - 86400000 : d.getTime();
-  scrubTime = { ts, label: val };
+  scrubTime = { ts: timestampForTimeInput(val), label: val };
   offsetIdx = SCRUB_IDX;
   render();
 });
