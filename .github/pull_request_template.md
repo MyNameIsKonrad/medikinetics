@@ -7,6 +7,6 @@ Closes #
 
 ## Checklist
 - [ ] README updated if user-visible behaviour changed
-- [ ] CLAUDE.md updated if a new architectural decision was made
+- [ ] AGENTS.md updated if a new architectural decision was made
 - [ ] Decision Log entry added for any judgment call
 - [ ] Commit messages use conventional prefix (feat/fix/docs/chore)
