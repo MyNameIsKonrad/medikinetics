@@ -52,12 +52,6 @@ One-compartment oral absorption model tuned to published methylphenidate paramet
 
 -----
 
-## Accessibility
-
-Blue (`#5bb8f5`) for IR doses, warm brown (`#b08860`) for CR — selected for deutan (red-green) color vision deficiency.
-
------
-
 ## Self-hosting
 
 Two files, no build step, no dependencies.
