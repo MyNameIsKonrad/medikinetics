@@ -241,6 +241,7 @@ const KA_REF = 2.0, KE = 0.347;
 const _tm = Math.log(KA_REF / KE) / (KA_REF - KE);
 const _cm = (KA_REF / (KA_REF - KE)) * (Math.exp(-KE * _tm) - Math.exp(-KA_REF * _tm));
 const NORM = 1 / _cm;
+const CLEARING_THRESHOLD = 0.1; // fraction of totalMg below which a pill is considered cleared
 
 function phaseConc(mg, tH, ka) {
   if (tH < 0) return 0;
@@ -287,7 +288,7 @@ function getCurveWindow(pills, now) {
     ? Math.min(...todayDoses.map(p => p.takenAt))
     : now;
   const latest = Math.max(...pills.map(p => {
-    const lp = MEDS[p.type].phases.at(-1);
+    const lp = phasesFor(p).at(-1);
     return p.takenAt + (lp.offsetHours + lp.durationHours) * 3600000;
   }));
   return {
@@ -297,6 +298,7 @@ function getCurveWindow(pills, now) {
 }
 
 // ── Helpers ───────────────────────────────────────────────
+const RISING_LOOKAHEAD_MS = 5 * 60000; // 5-minute forward window used to classify concentration as rising
 const fmt = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 function startOfLocalDay() { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
 function timeInputValue(ts) {
@@ -329,7 +331,7 @@ function durStr(ms) {
 }
 function pillIsVisible(pill, now) {
   const lp = phasesFor(pill).at(-1);
-  return now < phaseEnd(lp, pill.takenAt) || concAtTime([pill], now) >= MEDS[pill.type].totalMg * 0.1;
+  return now < phaseEnd(lp, pill.takenAt) || concAtTime([pill], now) >= MEDS[pill.type].totalMg * CLEARING_THRESHOLD;
 }
 
 // ── State ─────────────────────────────────────────────────
@@ -403,7 +405,7 @@ function toggleFed(id) {
   // Update chart + stats without rebuilding cards
   const today  = pills.filter(p => p.takenAt > now - 24 * 3600000);
   const inSys  = concAtTime(today, now);
-  const rising = concAtTime(today, now + 5 * 60000) > inSys;
+  const rising = concAtTime(today, now + RISING_LOOKAHEAD_MS) > inSys;
   const taken  = today.filter(p => p.takenAt >= startOfLocalDay()).reduce((s, p) => s + MEDS[p.type].totalMg, 0);
   document.getElementById('val-taken').textContent  = taken;
   document.getElementById('val-system').textContent = inSys.toFixed(1);
@@ -638,7 +640,7 @@ function render() {
   // Stats
   const taken    = today.filter(p => p.takenAt >= startOfLocalDay()).reduce((s, p) => s + MEDS[p.type].totalMg, 0);
   const inSystem = concAtTime(today, now);
-  const isRising = concAtTime(today, now + 5 * 60000) > inSystem;
+  const isRising = concAtTime(today, now + RISING_LOOKAHEAD_MS) > inSystem;
 
   document.getElementById('val-taken').textContent  = taken;
   document.getElementById('val-system').textContent = inSystem.toFixed(1);
@@ -720,7 +722,7 @@ function pillCardBodyHTML(pill, now) {
 
   if (allDone) {
     const conc      = concAtTime([pill], now);
-    const threshold = def.totalMg * 0.1;
+    const threshold = def.totalMg * CLEARING_THRESHOLD;
     const minsLeft  = conc > threshold ? Math.round((Math.log(conc / threshold) / KE) * 60) : 0;
     const timeStr   = durStr(minsLeft * 60000) ?? '—';
     return `
@@ -801,7 +803,7 @@ function logRowHTML(pill, now) {
   const def      = MEDS[pill.type];
   const visible  = pillIsVisible(pill, now);
   const conc     = concAtTime([pill], now);
-  const rising   = concAtTime([pill], now + 5 * 60000) > conc;
+  const rising   = concAtTime([pill], now + RISING_LOOKAHEAD_MS) > conc;
   const allDone  = phasesFor(pill).every(ph => phaseStatus(ph, pill.takenAt, now) === 'done');
   const clearing = visible && allDone;
   const st = !visible ? 'done' : rising ? '↑ rising' : clearing ? 'clearing' : 'active';
