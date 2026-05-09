@@ -1,84 +1,35 @@
 # Medikinetics
 
-A pharmacokinetic tracker for Medikinet IR and CR.
+A personal pharmacokinetic tracker for Medikinet IR and CR.
+
+I use this to take my meds responsibly. Stay aware of my daily intake – just basic enough to not avoid logging doses. More importantly – to visualise stacking doses – which affects how I feel but too abstract to be my mental math.
+
+I enjoy this project because it introduces me to basic development concepts and the feelings. Learning with tools like Claude Code allows me pick my own battles and participate as a real useful thing comes together. I expect this project reveals a ton of poor judgment which i will understand someday.
 
 **Live:** [mynameiskonrad.github.io/medikinetics](https://mynameiskonrad.github.io/medikinetics/)
 
------
-
 ## Dose types
 
-|Label|Drug              |Dose|Window|Model                                                                                          |
-|-----|------------------|----|------|-----------------------------------------------------------------------------------------------|
-|IR ½ |Methylphenidate IR|5mg |4h    |Single phase, ka=2.0                                                                           |
-|IR   |Methylphenidate IR|10mg|4h    |Single phase, ka=2.0                                                                           |
-|CR   |Methylphenidate CR|20mg|6–8h  |**Fasted (default):** single phase 20mg, ka=1.0. **Fed:** 10mg at 0h (ka=2.0) + 10mg at +4h (ka=0.7). Toggle per dose on the pill card.|
+| Label | Drug | Dose | Window |
+| --- | --- | --- | --- |
+| IR ½ | Methylphenidate IR | 5mg | 4h |
+| IR | Methylphenidate IR | 10mg | 4h |
+| CR | Methylphenidate CR | 20mg | 8h (50/50 bead, modeled in two phases) |
 
------
+## Model
 
-## Pharmacokinetic model
+One-compartment oral absorption tuned to published methylphenidate parameter – constants are written at the top of `index.html`. 
 
-One-compartment oral absorption model tuned to published methylphenidate parameters.
+Output is "model estimate" everywhere — individual PK varies with weight, food, activity, etc.
 
-**Parameters:**
+This represents how it is on average. As a diabetic, I'm likely absorbing faster – self-reported experiences like that aren't modeled.
 
-- `KE = 0.347` — elimination rate constant, t½ ≈ 2.0h
-- `KA = 2.0` — IR bead absorption rate, Tmax ~1.1h
-- `KA = 0.7` — CR delayed bead absorption rate, Tmax ~2h after phase release
+## Install
 
-**CR formulation — fed:** Medikinet CR is a 50/50 bead formulation. The fed model represents this as two sequential phases: 10mg IR beads at hour 0 (ka=2.0) and 10mg enteric-coated delayed-release beads at hour +4 (ka=0.7), producing the intended biphasic plasma profile.
+The two important files (`index.html`, `sw.js`) are hosted in this GitHub Pages repo.
 
-**CR formulation — fasted (default):** Without food, the enteric coating's programmed delay fails and the full dose front-loads into a single peak. The fasted model uses a single phase: 20mg, ka=1.0. ka=1.0 is a judgment call — slower than pure IR (2.0) to reflect residual bead-matrix retardation, faster than the fed delayed phase (0.7) — consistent with Haessler et al. 2008 reporting a "steady absorption / single Tmax" profile for Medikinet under fasted conditions. Each CR pill card defaults to fasted; tap the toggle switch to switch to the fed model for that dose.
-
-**Caveat:** Population-average model. Individual pharmacokinetics vary based on body weight, food intake, CES1 enzyme activity, and other factors. All curve output is labeled "model estimate."
-
------
-
-## Features
-
-- Live concentration curve, updates every 30 seconds
-- Two stats: **taken today** (calendar-day mg sum) and **in system** (PK model estimate in mg-equivalent units — normalized to the IR reference, not plasma ng/mL)
-- Rising indicator for the absorption phase post-dose
-- Fed/fasted toggle per CR dose — fasted is the default; tap the toggle switch on the pill card to switch to the with-food biphasic model, updating the curve immediately
-- Backdating via offset chips: now / -30m / -1h / -2h / -3h
-- Exact-time chip — tap the first chip for native time entry, or scrub the chart to set it, then log a dose at that exact moment
-- Simulate future dose — scrub to a future time, use the exact-time chip, and log a dose to see a temporary overlay
-- Crosshair intersection dots on the concentration curve
-- "Now" marker on the timeline
-- Undo delete, 8-second window with drain indicator
-- Press feedback on all interactive controls — scale transform with 400ms cooldown after logging
-- LocalStorage persistence, auto-purge after 48h
-- Service worker for offline use and update-safe caching
-
------
-
-## Self-hosting
-
-Two files, no build step, no dependencies.
-
-1. Fork or download this repo
-1. Place `index.html` and `sw.js` in the root of a GitHub Pages repo
-1. Enable GitHub Pages (Settings → Pages → Deploy from branch → main)
-1. Open the URL in Safari on iOS → Share → Add to Home Screen
-
-**Updating:** bump `VERSION` in `sw.js`, push both files, pull to refresh once in the app. LocalStorage data survives.
-
------
-
-## Stack
-
-Vanilla JS and SVG. Google Fonts (DM Mono, Space Grotesk). No frameworks, no build tools, no backend.
-
------
+I use it as a home screen PWA, it uses local storage and works offline which is dope. I have not managed to lose any data yet.
 
 ## Disclaimer
 
-Not a medical device. Not medical advice. Consult a physician for dosing decisions.
-
-Im hella serious about this, i dont know what im doing, in fact, look away and dont use this.
-
------
-
-## License
-
-MIT.
+Not a medical device. Not medical advice. Consult a physician for dosing decisions. I mean it.
