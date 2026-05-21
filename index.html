@@ -333,6 +333,22 @@ function pillIsVisible(pill, now) {
   const lp = phasesFor(pill).at(-1);
   return now < phaseEnd(lp, pill.takenAt) || concAtTime([pill], now) >= MEDS[pill.type].totalMg * CLEARING_THRESHOLD;
 }
+function isAllDone(pill, now) {
+  return phasesFor(pill).every(ph => phaseStatus(ph, pill.takenAt, now) === 'done');
+}
+function last24h(now) {
+  return pills.filter(p => p.takenAt > now - 24 * 3600000);
+}
+function updateStats(today, now) {
+  const taken  = today.filter(p => p.takenAt >= startOfLocalDay()).reduce((s, p) => s + MEDS[p.type].totalMg, 0);
+  const inSys  = concAtTime(today, now);
+  const rising = concAtTime(today, now + RISING_LOOKAHEAD_MS) > inSys;
+  document.getElementById('val-taken').textContent  = taken;
+  document.getElementById('val-system').textContent = inSys.toFixed(1);
+  document.getElementById('label-system').innerHTML = rising
+    ? '<span style="color:var(--rising)">↑ rising</span>'
+    : 'in system';
+}
 
 // ── State ─────────────────────────────────────────────────
 let pills          = [];
@@ -402,15 +418,8 @@ function toggleFed(id) {
     updatePillCardBody(pill, now);
   }
 
-  // Update chart + stats without rebuilding cards
-  const today  = pills.filter(p => p.takenAt > now - 24 * 3600000);
-  const inSys  = concAtTime(today, now);
-  const rising = concAtTime(today, now + RISING_LOOKAHEAD_MS) > inSys;
-  const taken  = today.filter(p => p.takenAt >= startOfLocalDay()).reduce((s, p) => s + MEDS[p.type].totalMg, 0);
-  document.getElementById('val-taken').textContent  = taken;
-  document.getElementById('val-system').textContent = inSys.toFixed(1);
-  document.getElementById('label-system').innerHTML = rising
-    ? '<span style="color:var(--rising)">↑ rising</span>' : 'in system';
+  const today = last24h(now);
+  updateStats(today, now);
   renderChart(today, simulatedPills, now);
 }
 
@@ -451,8 +460,9 @@ function hideUndo() {
 }
 
 // ── Chart ─────────────────────────────────────────────────
-let chartData = null;
-let chartWin  = null;
+function toPolygon(pts, baseY) {
+  return [`${pts[0].x},${baseY}`, ...pts.map(p => `${p.x},${p.y}`), `${pts.at(-1).x},${baseY}`].join(' ');
+}
 
 function renderChart(today, simulated, now) {
   const svg    = document.getElementById('chart-svg');
@@ -466,33 +476,24 @@ function renderChart(today, simulated, now) {
   const allPills = [...today, ...simulated];
   const win  = getCurveWindow(allPills, now);
   const data = buildCurve(allPills, win.start, win.end);
-  chartData  = data;
-  chartWin   = win;
 
   const CW = W - XPAD;
   const xS = ts => XPAD + (ts - win.start) / (win.end - win.start) * CW;
   const maxConc = Math.max(...data.map(d => d.total), 5);
   const yS = v  => CH - (v / (maxConc * 1.2)) * CH;
 
-  // X ticks — step adapts to window width
   const xTicks = [];
   const winDur = win.end - win.start;
   const step = winDur > 16 * 3600000 ? 4 * 3600000 : winDur > 8 * 3600000 ? 2 * 3600000 : 3600000;
   const tStart = Math.ceil(win.start / step) * step;
   for (let t = tStart; t <= win.end; t += step) xTicks.push(t);
 
-  // Y ticks
   const yTicks = [0, Math.round(maxConc * 0.5), Math.round(maxConc)];
 
-  // Per-pill fills — simulated get faint fill + dashed outline
   const pillFills = allPills.map(pill => {
     const color = MEDS[pill.type].color;
     const pts = data.map(d => ({ x: xS(d.ts), y: yS(d[pill.id] || 0) }));
-    const poly = [
-      `${pts[0].x},${CH}`,
-      ...pts.map(p => `${p.x},${p.y}`),
-      `${pts.at(-1).x},${CH}`
-    ].join(' ');
+    const poly = toPolygon(pts, CH);
     if (pill.sim) {
       const linePoly = pts.map(p => `${p.x},${p.y}`).join(' ');
       return `<polygon points="${poly}" fill="${color}" fill-opacity="0.04"/>
@@ -501,16 +502,21 @@ function renderChart(today, simulated, now) {
     return `<polygon points="${poly}" fill="${color}" fill-opacity="0.1"/>`;
   }).join('');
 
-  // Total line — if simulation exists, draw confirmed solid + projected dashed
+  // Total line — if simulation exists, draw confirmed solid + projected dashed.
+  // The confirmed total is derived by summing per-pill values already in `data`,
+  // avoiding a second `buildCurve` pass over every confirmed pill.
   const totalPts = data.map(d => ({ x: xS(d.ts), y: yS(d.total) }));
-  const polyPts  = [`${totalPts[0].x},${CH}`, ...totalPts.map(p => `${p.x},${p.y}`), `${totalPts.at(-1).x},${CH}`].join(' ');
+  const polyPts  = toPolygon(totalPts, CH);
   const linePts  = totalPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
   let totalLinesSVG;
   if (simulated.length) {
-    const confData   = buildCurve(today, win.start, win.end);
-    const confPts    = confData.map(d => ({ x: xS(d.ts), y: yS(d.total) }));
-    const confPoly   = [`${confPts[0].x},${CH}`, ...confPts.map(p => `${p.x},${p.y}`), `${confPts.at(-1).x},${CH}`].join(' ');
-    const confLine   = confPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+    const todayIds = today.map(p => p.id);
+    const confPts  = data.map(d => ({
+      x: xS(d.ts),
+      y: yS(todayIds.reduce((s, id) => s + (d[id] || 0), 0)),
+    }));
+    const confPoly = toPolygon(confPts, CH);
+    const confLine = confPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
     totalLinesSVG = `
       <polygon points="${confPoly}" fill="url(#tg)"/>
       <path d="${linePts}" fill="none" stroke="#5bb8f5" stroke-width="1.5" stroke-opacity=".3" stroke-dasharray="5,4" stroke-linecap="round"/>
@@ -521,7 +527,6 @@ function renderChart(today, simulated, now) {
       <path d="${linePts}" fill="none" stroke="#5bb8f5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
   }
 
-  // Now line
   const nowX = Math.max(XPAD, Math.min(W, xS(now)));
 
   // Phase markers — sim get dashed + "sim" label
@@ -571,14 +576,12 @@ function renderChart(today, simulated, now) {
   const tooltip  = document.getElementById('chart-tooltip');
   const crosshair = document.getElementById('chart-crosshair');
   function showTooltip(clientX, clientY) {
-    if (!chartData || !chartWin) return;
     const rect = svg.getBoundingClientRect();
     const relX = clientX - rect.left - XPAD;
     const fracX = Math.max(0, Math.min(1, relX / CW));
-    const ts = chartWin.start + fracX * (chartWin.end - chartWin.start);
-    const closest = chartData.reduce((best, p) =>
+    const ts = win.start + fracX * (win.end - win.start);
+    const closest = data.reduce((best, p) =>
       Math.abs(p.ts - ts) < Math.abs(best.ts - ts) ? p : best);
-    // crosshair
     const cx = XPAD + fracX * CW;
     crosshair.setAttribute('x1', cx);
     crosshair.setAttribute('x2', cx);
@@ -589,17 +592,15 @@ function renderChart(today, simulated, now) {
       exactChip.value = scrubTime.label;
       exactChip.classList.remove('offset-chip-unset');
     }
-    // intersection dots
     const dotLayer = document.getElementById('dot-layer');
     if (dotLayer) {
       dotLayer.innerHTML = allPills.map(pill => {
-        const v = concAtTime([pill], closest.ts);
+        const v = closest[pill.id] || 0;
         const r = pill.sim ? 2.5 : 3;
         return `<circle cx="${cx}" cy="${yS(v)}" r="${r}" fill="${MEDS[pill.type].color}" stroke="var(--bg)" stroke-width="1.5" opacity="${pill.sim ? .5 : 1}"/>`;
       }).join('') +
       `<circle cx="${cx}" cy="${yS(closest.total)}" r="4" fill="none" stroke="#5bb8f5" stroke-width="1.5"/>`;
     }
-    // tooltip
     document.getElementById('tt-time').textContent = fmt(closest.ts);
     document.getElementById('tt-val').textContent  = closest.total.toFixed(1);
     const tLeft = Math.min(clientX - rect.left + 8, rect.width - 120);
@@ -613,8 +614,11 @@ function renderChart(today, simulated, now) {
     if (hideTimer) clearTimeout(hideTimer);
     hideTimer = setTimeout(() => {
       tooltip.style.display = 'none';
-      crosshair.setAttribute('x1', '-999');
-      crosshair.setAttribute('x2', '-999');
+      // Re-query crosshair: a re-render between touchend and this timeout fires
+      // would otherwise leave us writing to a detached node.
+      const liveCrosshair = document.getElementById('chart-crosshair');
+      liveCrosshair?.setAttribute('x1', '-999');
+      liveCrosshair?.setAttribute('x2', '-999');
       const dotLayer = document.getElementById('dot-layer');
       if (dotLayer) dotLayer.innerHTML = '';
     }, delay);
@@ -635,20 +639,9 @@ function renderChart(today, simulated, now) {
 // ── Render ────────────────────────────────────────────────
 function render() {
   const now   = Date.now();
-  const today = pills.filter(p => p.takenAt > now - 24 * 3600000);
+  const today = last24h(now);
 
-  // Stats
-  const taken    = today.filter(p => p.takenAt >= startOfLocalDay()).reduce((s, p) => s + MEDS[p.type].totalMg, 0);
-  const inSystem = concAtTime(today, now);
-  const isRising = concAtTime(today, now + RISING_LOOKAHEAD_MS) > inSystem;
-
-  document.getElementById('val-taken').textContent  = taken;
-  document.getElementById('val-system').textContent = inSystem.toFixed(1);
-  document.getElementById('label-system').innerHTML = isRising
-    ? '<span style="color:var(--rising)">↑ rising</span>'
-    : 'in system';
-
-  // Chart
+  updateStats(today, now);
   renderChart(today, simulatedPills, now);
 
   // Dose buttons (static, only build once)
@@ -716,9 +709,9 @@ function selectExactTimeChip() {
 }
 
 function pillCardBodyHTML(pill, now) {
-  const def = MEDS[pill.type];
+  const def     = MEDS[pill.type];
   const phases  = phasesFor(pill);
-  const allDone = phases.every(ph => phaseStatus(ph, pill.takenAt, now) === 'done');
+  const allDone = isAllDone(pill, now);
 
   if (allDone) {
     const conc      = concAtTime([pill], now);
@@ -801,11 +794,10 @@ function pillCardHTML(pill, now) {
 
 function logRowHTML(pill, now) {
   const def      = MEDS[pill.type];
-  const visible  = pillIsVisible(pill, now);
   const conc     = concAtTime([pill], now);
-  const rising   = concAtTime([pill], now + RISING_LOOKAHEAD_MS) > conc;
-  const allDone  = phasesFor(pill).every(ph => phaseStatus(ph, pill.takenAt, now) === 'done');
-  const clearing = visible && allDone;
+  const visible  = pillIsVisible(pill, now);
+  const rising   = visible && concAtTime([pill], now + RISING_LOOKAHEAD_MS) > conc;
+  const clearing = visible && isAllDone(pill, now);
   const st = !visible ? 'done' : rising ? '↑ rising' : clearing ? 'clearing' : 'active';
   const sc = !visible ? 'var(--muted)' : clearing ? 'var(--clearing)' : 'var(--green)';
   return `
