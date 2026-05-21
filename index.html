@@ -154,7 +154,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 <div id="app">
   <div class="header">
     <div class="title">Medikinetics</div>
-    <div class="sub"><span style="opacity:.4">20260430.0003</span></div>
+    <div class="sub"><span id="version-label" style="opacity:.4">20260430.0003</span></div>
   </div>
 
   <div class="stats-row">
@@ -251,8 +251,10 @@ function phaseConc(mg, tH, ka) {
   return Math.max(0, mg * NORM * (ka / (ka - KE)) * (Math.exp(-KE * tH) - Math.exp(-ka * tH)));
 }
 
+const hasFedToggle = pill => pill.type === 'CR';
+
 function phasesFor(pill) {
-  return (pill.type === 'CR' && !pill.fed) ? MEDS.CR.fastedPhases : MEDS[pill.type].phases;
+  return (hasFedToggle(pill) && !pill.fed) ? MEDS.CR.fastedPhases : MEDS[pill.type].phases;
 }
 
 function concAtTime(pills, ts) {
@@ -367,7 +369,7 @@ function logPill(type) {
 
   if (rawAt > now) {
     // Future time → preview only, not persisted
-    simulatedPills = [{ id: now, type, takenAt: rawAt, sim: true, ...(type === 'CR' ? { fed: false } : {}) }];
+    simulatedPills = [{ id: now, type, takenAt: rawAt, sim: true, ...(hasFedToggle({ type }) ? { fed: false } : {}) }];
     render();
     return;
   }
@@ -378,7 +380,7 @@ function logPill(type) {
     setTimeout(() => { b.disabled = false; b.classList.remove('just-fired'); }, 400);
   });
   simulatedPills = [];
-  pills = [{ id: now, type, takenAt: Math.min(now, rawAt), ...(type === 'CR' ? { fed: false } : {}) }, ...pills];
+  pills = [{ id: now, type, takenAt: Math.min(now, rawAt), ...(hasFedToggle({ type }) ? { fed: false } : {}) }, ...pills];
   savePills();
   offsetIdx = OFFSETS.length - 1;
   scrubTime = null;
@@ -789,7 +791,7 @@ function pillCardHTML(pill, now) {
         </div>
         <button class="x-btn" onclick="removePill(${pill.id})">×</button>
       </div>
-      ${pill.type === 'CR' ? `
+      ${hasFedToggle(pill) ? `
       <div class="fed-toggle" onclick="toggleFed(${pill.id})">
         <span class="fed-lbl${!pill.fed ? ' fed-lbl--on' : ''}">fasted</span>
         <div class="fed-track${pill.fed ? ' fed-track--fed' : ''}"><div class="fed-thumb"></div></div>
@@ -864,6 +866,12 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
       .catch(e => console.error('SW failed', e));
+  });
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data?.type === 'VERSION') {
+      const el = document.getElementById('version-label');
+      if (el) el.textContent = e.data.version;
+    }
   });
 }
 

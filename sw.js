@@ -104,6 +104,9 @@ self.addEventListener('activate', event => {
     );
 
     await self.clients.claim();
+
+    const all = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+    all.forEach(c => c.postMessage({ type: 'VERSION', version: VERSION.replace(/^medikinetics-/, '') }));
   })());
 });
 
