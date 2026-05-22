@@ -84,6 +84,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 /* Fed/fasted toggle switch on CR pill cards */
 .pill-card:has(.fed-toggle) .card-head { margin-bottom: 8px; }
 .fed-toggle { display: inline-flex; align-items: center; gap: 8px;
+  background: none; border: none; padding: 0;
   cursor: pointer; touch-action: manipulation; margin-bottom: 8px;
   transition: transform var(--t-base) ease-out; }
 .fed-toggle.pressing, .fed-toggle:active { transform: scale(0.95); transition: transform var(--t-press) ease-in; }
@@ -183,7 +184,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
       <div class="chart-est">model estimate</div>
     </div>
     <div class="chart-wrap" id="chart-container">
-      <svg id="chart-svg" height="170"></svg>
+      <svg id="chart-svg" height="170" role="img" aria-label="Methylphenidate concentration curve"></svg>
       <div class="chart-tooltip" id="chart-tooltip">
         <div class="tt-time" id="tt-time"></div>
         <div class="tt-val"><span id="tt-val">0.0</span><span class="tt-unit">mg eq</span></div>
@@ -211,7 +212,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 </div>
 
 <div id="undo-toast">
-  <span id="undo-msg"></span>
+  <span id="undo-msg" aria-live="polite"></span>
   <button id="undo-btn" onclick="undoRemove()">UNDO</button>
 </div>
 
@@ -419,6 +420,7 @@ function toggleFed(id) {
   // Toggle classes directly so the CSS slide transition plays (full render destroys the element)
   const card = document.querySelector(`.pill-card[data-id="${id}"]`);
   if (card) {
+    card.querySelector('.fed-toggle')?.setAttribute('aria-checked', pill.fed);
     card.querySelector('.fed-track')?.classList.toggle('fed-track--fed', pill.fed);
     const lbls = card.querySelectorAll('.fed-lbl');
     lbls[0]?.classList.toggle('fed-lbl--on', !pill.fed);
@@ -774,7 +776,7 @@ function pillCardHTML(pill, now) {
           <span class="card-mg">${def.totalMg} mg</span>
           <span class="card-time">${fmt(pill.takenAt)}</span>
         </div>
-        <button class="x-btn" onclick="clearSim()">×</button>
+        <button class="x-btn" onclick="clearSim()" aria-label="Dismiss dose preview">×</button>
       </div>
       <div class="sim-label">preview · not logged</div>
     </div>`;
@@ -788,14 +790,14 @@ function pillCardHTML(pill, now) {
           <span class="card-mg">${def.totalMg} mg</span>
           <span class="card-time">${fmt(pill.takenAt)}</span>
         </div>
-        <button class="x-btn" onclick="removePill(${pill.id})">×</button>
+        <button class="x-btn" onclick="removePill(${pill.id})" aria-label="Remove ${def.label} ${def.totalMg}mg dose">×</button>
       </div>
       ${hasFedToggle(pill) ? `
-      <div class="fed-toggle" onclick="toggleFed(${pill.id})">
+      <button class="fed-toggle" role="switch" aria-checked="${pill.fed}" onclick="toggleFed(${pill.id})">
         <span class="fed-lbl${!pill.fed ? ' fed-lbl--on' : ''}">fasted</span>
-        <div class="fed-track${pill.fed ? ' fed-track--fed' : ''}"><div class="fed-thumb"></div></div>
+        <span class="fed-track${pill.fed ? ' fed-track--fed' : ''}"><span class="fed-thumb"></span></span>
         <span class="fed-lbl${pill.fed ? ' fed-lbl--on' : ''}">food</span>
-      </div>` : ''}
+      </button>` : ''}
       <div class="pill-body">${pillCardBodyHTML(pill, now)}</div>
     </div>`;
 }
@@ -807,14 +809,14 @@ function logRowHTML(pill, now) {
   const rising   = visible && concAtTime([pill], now + RISING_LOOKAHEAD_MS) > conc;
   const clearing = visible && isAllDone(pill, now);
   const st = !visible ? 'done' : rising ? '↑ rising' : clearing ? 'clearing' : 'active';
-  const sc = !visible ? 'var(--muted)' : clearing ? 'var(--clearing)' : 'var(--green)';
+  const sc = !visible ? 'var(--muted)' : rising ? 'var(--rising)' : clearing ? 'var(--clearing)' : 'var(--green)';
   return `
     <div class="log-row ${visible ? '' : 'expired'}">
       <span class="log-type" style="color:${def.color}">${def.label}</span>
       <span class="log-mg">${def.totalMg} mg</span>
       <span class="log-t">${fmt(pill.takenAt)}</span>
       <span class="log-status" style="color:${sc}">${st}</span>
-      <button class="x-btn" onclick="removePill(${pill.id})">×</button>
+      <button class="x-btn" onclick="removePill(${pill.id})" aria-label="Remove ${def.label} ${def.totalMg}mg dose">×</button>
     </div>`;
 }
 
