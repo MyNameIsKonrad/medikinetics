@@ -140,7 +140,12 @@ self.addEventListener('fetch', event => {
       const cached = await caches.match(event.request);
       if (cached) return cached;
 
-      return await fetch(event.request);
+      const response = await fetch(event.request);
+      if (response.ok) {
+        const cache = await caches.open(CACHE);
+        cache.put(event.request, response.clone()); // fire-and-forget
+      }
+      return response;
     } catch (error) {
       return new Response('', { status: 504, statusText: 'Offline' });
     }

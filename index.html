@@ -144,6 +144,17 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; letter-spacing: .06em;
   transition: transform .15s ease-out; }
 #undo-btn.pressing, #undo-btn:active { transform: scale(0.88); transition: transform .08s ease-in; }
+/* Update banner */
+#update-banner { position: fixed; top: 0; left: 0; right: 0;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 10px 20px; padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
+  display: none; align-items: center; justify-content: space-between;
+  font-family: 'DM Mono', monospace; font-size: 11px; color: var(--toast-text);
+  z-index: 200; }
+#update-banner.visible { display: flex; }
+#update-reload { background: none; border: 1px solid var(--ir); color: var(--ir);
+  font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 700;
+  padding: 3px 10px; border-radius: 6px; cursor: pointer; touch-action: manipulation; }
 /* Simulation card */
 .pill-card--sim { border-color: rgba(91,184,245,.2); border-style: dashed; opacity: .8; }
 .sim-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim);
@@ -151,6 +162,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 </style>
 </head>
 <body>
+<div id="update-banner">
+  <span>update available</span>
+  <button id="update-reload" onclick="location.reload()">RELOAD</button>
+</div>
 <div id="app">
   <div class="header">
     <div class="title">Medikinetics</div>
@@ -862,7 +877,11 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', e => {
     if (e.data?.type === 'VERSION') {
       const el = document.getElementById('version-label');
+      const prev = el?.textContent;
       if (el) el.textContent = e.data.version;
+      if (prev && prev !== e.data.version) {
+        document.getElementById('update-banner')?.classList.add('visible');
+      }
     }
   });
 }
