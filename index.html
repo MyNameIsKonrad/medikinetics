@@ -87,14 +87,16 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .fed-lbl { font-family: 'DM Mono', monospace; font-size: 11px;
   color: var(--muted); transition: color .15s; }
 .fed-lbl--on { color: var(--soft); }
-.fed-track { display: inline-block; width: 36px; height: 20px; border-radius: 10px;
+.fed-track { width: 36px; height: 20px; border-radius: 10px;
   background: var(--border); position: relative;
   transition: background .2s; flex-shrink: 0; }
 .fed-track--fed { background: rgba(78,203,141,.18); }
-.fed-thumb { display: inline-block; position: absolute; top: 2px; left: 2px;
+.fed-thumb { position: absolute; top: 2px; left: 2px;
   width: 16px; height: 16px; border-radius: 8px;
   background: var(--muted); transition: transform .2s, background .2s; }
 .fed-track--fed .fed-thumb { transform: translateX(16px); background: #4ecb8d; }
+/* <span> needs inline-block to honor width/height outside flex/abs-pos contexts */
+.fed-track, .fed-thumb { display: inline-block; }
 /* Card */
 .pill-card { background: var(--surface); border: 1px solid var(--border);
   border-radius: 16px; padding: 16px; margin-bottom: 12px; }
