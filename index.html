@@ -10,9 +10,17 @@
 <meta name="theme-color" content="#080d17">
 <title>Medikinetics</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
 :root {
   --bg: #080d17; --surface: #0f1623; --border: #1a2235;
   --muted: #2d3f57; --dim: #3a5070; --soft: #4a6080;
@@ -101,7 +109,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .fed-track--fed .fed-thumb { transform: translateX(16px); background: var(--green); }
 /* Card */
 .pill-card { background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  border-radius: 16px; padding: 16px; margin-bottom: 12px; contain: layout style; }
 .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .card-head-left { display: flex; align-items: baseline; gap: 8px; }
 .card-type { font-size: 15px; font-weight: 700; }
@@ -117,7 +125,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .fill-bar { height: 100%; border-radius: 3px; transition: width var(--t-fill) ease; }
 /* Log */
 .log-row { display: flex; align-items: center; gap: 8px;
-  padding: 12px 0; border-bottom: 1px solid var(--surface); }
+  padding: 12px 0; border-bottom: 1px solid var(--surface); contain: layout style; }
 .log-row.expired { opacity: .3; }
 .log-type { font-size: 13px; font-weight: 700; min-width: 36px; }
 .log-mg { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--soft); min-width: 44px; }
@@ -172,6 +180,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   <button id="update-reload" onclick="location.reload()">RELOAD</button>
 </div>
 <div id="app">
+  <noscript>
+    <h1 style="font-size: 18px; margin-bottom: 12px; text-align: center;">Medikinetics needs JavaScript</h1>
+    <p style="color: #8ba3be; line-height: 1.5; text-align: center;">This app runs entirely in your browser and stores doses locally. Enable JavaScript to continue.</p>
+  </noscript>
   <div class="header">
     <div class="title">Medikinetics</div>
     <div class="sub"><span id="version-label" style="opacity:.4">20260430.0003</span></div>
