@@ -1,4 +1,8 @@
 // Medikinetics Service Worker v5
+// VERSION drives the cache key AND the version label shown in index.html.
+// When bumping the date stamp here, also update the static fallback in
+// index.html's #version-label span — the update banner will fire for any
+// drift but a matched pair keeps the first-load label correct.
 const VERSION = 'medikinetics-20260430.0003';
 const CACHE = VERSION;
 
