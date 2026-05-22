@@ -138,7 +138,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 #undo-toast.visible { display: flex; }
 #undo-toast.visible::after { content: ''; position: absolute; bottom: 0; left: 0;
   height: 2px; background: var(--ir); border-radius: 0 0 12px 12px;
-  animation: drain 8s linear forwards; }
+  animation: drain var(--undo-duration) linear forwards; }
 @keyframes drain { from { width: 100%; } to { width: 0%; } }
 #undo-btn { background: none; border: none; color: var(--ir); font-family: 'DM Mono', monospace;
   font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; letter-spacing: .06em;
@@ -242,6 +242,7 @@ const _tm = Math.log(KA_REF / KE) / (KA_REF - KE);
 const _cm = (KA_REF / (KA_REF - KE)) * (Math.exp(-KE * _tm) - Math.exp(-KA_REF * _tm));
 const NORM = 1 / _cm;
 const CLEARING_THRESHOLD = 0.1; // fraction of totalMg below which a pill is considered cleared
+const UNDO_DURATION_MS   = 8000; // undo toast lifetime — single source of truth; CSS reads --undo-duration
 
 function phaseConc(mg, tH, ka) {
   if (tH < 0) return 0;
@@ -251,10 +252,11 @@ function phaseConc(mg, tH, ka) {
   return Math.max(0, mg * NORM * (ka / (ka - KE)) * (Math.exp(-KE * tH) - Math.exp(-ka * tH)));
 }
 
-const hasFedToggle = pill => pill.type === 'CR';
+const hasFedToggle = pill => !!MEDS[pill.type]?.fastedPhases;
 
 function phasesFor(pill) {
-  return (hasFedToggle(pill) && !pill.fed) ? MEDS.CR.fastedPhases : MEDS[pill.type].phases;
+  const med = MEDS[pill.type];
+  return (hasFedToggle(pill) && !pill.fed) ? med.fastedPhases : med.phases;
 }
 
 function concAtTime(pills, ts) {
@@ -437,7 +439,7 @@ function removePill(id) {
   savePills();
   undoItem = pill;
   if (undoTimer) clearTimeout(undoTimer);
-  undoTimer = setTimeout(() => { undoItem = null; hideUndo(); }, 8000);
+  undoTimer = setTimeout(() => { undoItem = null; hideUndo(); }, UNDO_DURATION_MS);
   showUndo(pill);
   render();
 }
@@ -813,6 +815,7 @@ function logRowHTML(pill, now) {
 }
 
 // ── Init ──────────────────────────────────────────────────
+document.documentElement.style.setProperty('--undo-duration', `${UNDO_DURATION_MS / 1000}s`);
 pills = loadPills();
 render();
 setInterval(render, 30000);
@@ -836,15 +839,16 @@ document.addEventListener('change', e => {
 (function() {
   const SEL = '.dose-btn, .offset-chip, .fed-toggle, .x-btn, #undo-btn';
   const MIN_MS = 90;
+  const pressAt = new WeakMap();
   document.addEventListener('touchstart', e => {
     const el = e.target.closest(SEL);
     if (!el || el.disabled) return;
     el.classList.add('pressing');
-    el._pressAt = Date.now();
+    pressAt.set(el, Date.now());
   }, { passive: true });
   document.addEventListener('touchend', () => {
     document.querySelectorAll('.pressing').forEach(el => {
-      const delay = Math.max(0, MIN_MS - (Date.now() - (el._pressAt || 0)));
+      const delay = Math.max(0, MIN_MS - (Date.now() - (pressAt.get(el) || 0)));
       setTimeout(() => el.classList.remove('pressing'), delay);
     });
   });
