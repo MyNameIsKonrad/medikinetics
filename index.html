@@ -21,6 +21,10 @@
   --toast-text: #8ba3be; --tooltip-bg: #0a1020;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bot: env(safe-area-inset-bottom, 0px);
+  --t-base:   .15s; --t-press: .08s; --t-toggle: .2s; --t-fill: .3s;
+  --ir-tint:     rgba(91,184,245,.12);
+  --ir-tint-sim: rgba(91,184,245,.2);
+  --green-tint:  rgba(78,203,141,.18);
 }
 html, body { height: 100%; background: var(--bg); color: var(--text);
   font-family: 'Space Grotesk', system-ui, sans-serif;
@@ -62,8 +66,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .dose-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .dose-btn { display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 14px 8px; background: transparent; border: 1.5px solid var(--muted); border-radius: 16px;
-  color: var(--text); cursor: pointer; touch-action: manipulation; transition: opacity .15s, transform .15s ease-out; }
-.dose-btn.pressing, .dose-btn:active { transform: scale(0.91); transition: transform .08s ease-in; }
+  color: var(--text); cursor: pointer; touch-action: manipulation; transition: opacity var(--t-base), transform var(--t-base) ease-out; }
+.dose-btn.pressing, .dose-btn:active { transform: scale(0.91); transition: transform var(--t-press) ease-in; }
 .dose-btn.just-fired { opacity: .35; }
 .dose-btn-name { font-size: 16px; font-weight: 700; letter-spacing: .04em; }
 .dose-btn-sub { font-family: 'DM Mono', monospace; font-size: 10px; opacity: .6; }
@@ -71,9 +75,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .offset-row { display: flex; gap: 8px; flex-wrap: nowrap; }
 .offset-chip { flex: 1; font-family: 'DM Mono', monospace; font-size: 11px; padding: 4px 8px;
   border-radius: 20px; border: 1px solid var(--border); background: transparent; text-align: center;
-  color: var(--dim); cursor: pointer; touch-action: manipulation; transition: border-color .15s, background .15s, color .15s, transform .15s ease-out; }
-.offset-chip.active { border-color: var(--ir); background: rgba(91,184,245,.12); color: var(--ir); }
-.offset-chip.pressing, .offset-chip:active { transform: scale(0.90); transition: border-color .15s, background .15s, color .15s, transform .08s ease-in; }
+  color: var(--dim); cursor: pointer; touch-action: manipulation; transition: border-color var(--t-base), background var(--t-base), color var(--t-base), transform var(--t-base) ease-out; }
+.offset-chip.active { border-color: var(--ir); background: var(--ir-tint); color: var(--ir); }
+.offset-chip.pressing, .offset-chip:active { transform: scale(0.90); transition: border-color var(--t-base), background var(--t-base), color var(--t-base), transform var(--t-press) ease-in; }
 .offset-chip-unset { opacity: .75; }
 .exact-time-chip { flex: 1.25; min-width: 0; height: auto; color-scheme: dark; -webkit-appearance: none; appearance: none; }
 .exact-time-chip::-webkit-calendar-picker-indicator { opacity: .65; filter: invert(69%) sepia(20%) saturate(787%) hue-rotate(176deg); }
@@ -81,19 +85,19 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .pill-card:has(.fed-toggle) .card-head { margin-bottom: 8px; }
 .fed-toggle { display: inline-flex; align-items: center; gap: 8px;
   cursor: pointer; touch-action: manipulation; margin-bottom: 8px;
-  transition: transform .15s ease-out; }
-.fed-toggle.pressing, .fed-toggle:active { transform: scale(0.95); transition: transform .08s ease-in; }
+  transition: transform var(--t-base) ease-out; }
+.fed-toggle.pressing, .fed-toggle:active { transform: scale(0.95); transition: transform var(--t-press) ease-in; }
 .fed-lbl { font-family: 'DM Mono', monospace; font-size: 11px;
-  color: var(--muted); transition: color .15s; }
+  color: var(--muted); transition: color var(--t-base); }
 .fed-lbl--on { color: var(--soft); }
 .fed-track { width: 36px; height: 20px; border-radius: 10px;
   background: var(--border); position: relative;
-  transition: background .2s; flex-shrink: 0; }
-.fed-track--fed { background: rgba(78,203,141,.18); }
+  transition: background var(--t-toggle); flex-shrink: 0; }
+.fed-track--fed { background: var(--green-tint); }
 .fed-thumb { position: absolute; top: 2px; left: 2px;
   width: 16px; height: 16px; border-radius: 8px;
-  background: var(--muted); transition: transform .2s, background .2s; }
-.fed-track--fed .fed-thumb { transform: translateX(16px); background: #4ecb8d; }
+  background: var(--muted); transition: transform var(--t-toggle), background var(--t-toggle); }
+.fed-track--fed .fed-thumb { transform: translateX(16px); background: var(--green); }
 /* Card */
 .pill-card { background: var(--surface); border: 1px solid var(--border);
   border-radius: 16px; padding: 16px; margin-bottom: 12px; }
@@ -109,7 +113,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .phase-tag { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim); margin-left: 5px; }
 .phase-time { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); }
 .track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
-.fill-bar { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
+.fill-bar { height: 100%; border-radius: 3px; transition: width var(--t-fill) ease; }
 /* Log */
 .log-row { display: flex; align-items: center; gap: 8px;
   padding: 12px 0; border-bottom: 1px solid var(--surface); }
@@ -121,8 +125,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 /* Buttons */
 .x-btn { background: none; border: none; color: var(--muted); font-size: 20px;
   line-height: 1; cursor: pointer; padding: 8px; margin: -8px; touch-action: manipulation;
-  transition: transform .15s ease-out; }
-.x-btn.pressing, .x-btn:active { transform: scale(0.80); transition: transform .08s ease-in; }
+  transition: transform var(--t-base) ease-out; }
+.x-btn.pressing, .x-btn:active { transform: scale(0.80); transition: transform var(--t-press) ease-in; }
 /* Focus */
 :focus-visible { outline: 2px solid var(--ir); outline-offset: 2px; border-radius: 4px; }
 /* Empty */
@@ -142,10 +146,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 @keyframes drain { from { width: 100%; } to { width: 0%; } }
 #undo-btn { background: none; border: none; color: var(--ir); font-family: 'DM Mono', monospace;
   font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; letter-spacing: .06em;
-  transition: transform .15s ease-out; }
-#undo-btn.pressing, #undo-btn:active { transform: scale(0.88); transition: transform .08s ease-in; }
+  transition: transform var(--t-base) ease-out; }
+#undo-btn.pressing, #undo-btn:active { transform: scale(0.88); transition: transform var(--t-press) ease-in; }
 /* Simulation card */
-.pill-card--sim { border-color: rgba(91,184,245,.2); border-style: dashed; opacity: .8; }
+.pill-card--sim { border-color: var(--ir-tint-sim); border-style: dashed; opacity: .8; }
 .sim-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim);
   text-transform: uppercase; letter-spacing: .06em; margin-top: 6px; }
 </style>
@@ -523,12 +527,12 @@ function renderChart(today, simulated, now) {
     const confLine = confPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
     totalLinesSVG = `
       <polygon points="${confPoly}" fill="url(#tg)"/>
-      <path d="${linePts}" fill="none" stroke="#5bb8f5" stroke-width="1.5" stroke-opacity=".3" stroke-dasharray="5,4" stroke-linecap="round"/>
-      <path d="${confLine}" fill="none" stroke="#5bb8f5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+      <path d="${linePts}" fill="none" stroke="${MEDS.IR.color}" stroke-width="1.5" stroke-opacity=".3" stroke-dasharray="5,4" stroke-linecap="round"/>
+      <path d="${confLine}" fill="none" stroke="${MEDS.IR.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
   } else {
     totalLinesSVG = `
       <polygon points="${polyPts}" fill="url(#tg)"/>
-      <path d="${linePts}" fill="none" stroke="#5bb8f5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+      <path d="${linePts}" fill="none" stroke="${MEDS.IR.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
   }
 
   const nowX = Math.max(XPAD, Math.min(W, xS(now)));
@@ -550,8 +554,8 @@ function renderChart(today, simulated, now) {
   svg.innerHTML = `
     <defs>
       <linearGradient id="tg" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#5bb8f5" stop-opacity=".28"/>
-        <stop offset="100%" stop-color="#5bb8f5" stop-opacity=".02"/>
+        <stop offset="0%" stop-color="${MEDS.IR.color}" stop-opacity=".28"/>
+        <stop offset="100%" stop-color="${MEDS.IR.color}" stop-opacity=".02"/>
       </linearGradient>
     </defs>
     ${yTicks.map(v => `
@@ -603,7 +607,7 @@ function renderChart(today, simulated, now) {
         const r = pill.sim ? 2.5 : 3;
         return `<circle cx="${cx}" cy="${yS(v)}" r="${r}" fill="${MEDS[pill.type].color}" stroke="var(--bg)" stroke-width="1.5" opacity="${pill.sim ? .5 : 1}"/>`;
       }).join('') +
-      `<circle cx="${cx}" cy="${yS(closest.total)}" r="4" fill="none" stroke="#5bb8f5" stroke-width="1.5"/>`;
+      `<circle cx="${cx}" cy="${yS(closest.total)}" r="4" fill="none" stroke="${MEDS.IR.color}" stroke-width="1.5"/>`;
     }
     document.getElementById('tt-time').textContent = fmt(closest.ts);
     document.getElementById('tt-val').textContent  = closest.total.toFixed(1);
