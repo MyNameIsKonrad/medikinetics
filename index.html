@@ -272,7 +272,11 @@ function concAtTime(pills, ts) {
   return total;
 }
 
+let _curveCache = null;
 function buildCurve(pills, wStart, wEnd) {
+  const key = `${wStart}|${wEnd}|${pills.map(p => `${p.id}:${p.type}:${p.takenAt}:${p.fed ? 1 : 0}`).join(',')}`;
+  if (_curveCache?.key === key) return _curveCache.result;
+
   const pts = [];
   for (let ts = wStart; ts <= wEnd; ts += 10 * 60000) {
     let total = 0;
@@ -286,7 +290,18 @@ function buildCurve(pills, wStart, wEnd) {
     }
     pts.push({ ts, total: Math.round(total * 10) / 10, ...perPill });
   }
+  _curveCache = { key, result: pts };
   return pts;
+}
+
+function closestPoint(data, ts) {
+  let lo = 0, hi = data.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (data[mid].ts < ts) lo = mid + 1; else hi = mid;
+  }
+  if (lo > 0 && Math.abs(data[lo - 1].ts - ts) <= Math.abs(data[lo].ts - ts)) return data[lo - 1];
+  return data[lo];
 }
 
 function getCurveWindow(pills, now) {
@@ -590,8 +605,7 @@ function renderChart(today, simulated, now) {
     const relX = clientX - rect.left - XPAD;
     const fracX = Math.max(0, Math.min(1, relX / CW));
     const ts = win.start + fracX * (win.end - win.start);
-    const closest = data.reduce((best, p) =>
-      Math.abs(p.ts - ts) < Math.abs(best.ts - ts) ? p : best);
+    const closest = closestPoint(data, ts);
     const cx = XPAD + fracX * CW;
     crosshair.setAttribute('x1', cx);
     crosshair.setAttribute('x2', cx);
