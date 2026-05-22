@@ -14,6 +14,13 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
 :root {
   --bg: #080d17; --surface: #0f1623; --border: #1a2235;
   --muted: #2d3f57; --dim: #3a5070; --soft: #4a6080;
@@ -149,24 +156,14 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .pill-card--sim { border-color: rgba(91,184,245,.2); border-style: dashed; opacity: .8; }
 .sim-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim);
   text-transform: uppercase; letter-spacing: .06em; margin-top: 6px; }
-/* Honor user motion preference — drop animations and transitions */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-  }
-}
 </style>
 </head>
 <body>
-<noscript>
-  <div style="padding: 32px 24px; text-align: center; font-family: system-ui, sans-serif;">
-    <h1 style="font-size: 18px; margin-bottom: 12px;">Medikinetics needs JavaScript</h1>
-    <p style="color: #8ba3be; line-height: 1.5;">This app runs entirely in your browser and stores doses locally. Enable JavaScript to continue.</p>
-  </div>
-</noscript>
 <div id="app">
+  <noscript>
+    <h1 style="font-size: 18px; margin-bottom: 12px; text-align: center;">Medikinetics needs JavaScript</h1>
+    <p style="color: #8ba3be; line-height: 1.5; text-align: center;">This app runs entirely in your browser and stores doses locally. Enable JavaScript to continue.</p>
+  </noscript>
   <div class="header">
     <div class="title">Medikinetics</div>
     <div class="sub"><span id="version-label" style="opacity:.4">20260430.0003</span></div>
