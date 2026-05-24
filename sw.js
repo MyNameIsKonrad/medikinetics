@@ -1,9 +1,9 @@
 // Medikinetics Service Worker v5
 // VERSION drives the cache key AND the version label shown in index.html.
-// When bumping the date stamp here, also update the static fallback in
-// index.html's #version-label span — the update banner will fire for any
-// drift but a matched pair keeps the first-load label correct.
-const VERSION = 'medikinetics-20260430.0003';
+// Do not edit VERSION manually — .github/workflows/version-stamp.yml updates
+// both this constant and the #version-label fallback in index.html on every
+// push to main.
+const VERSION = 'medikinetics-20260524.0001';
 const CACHE = VERSION;
 
 const APP_ROOT = self.registration.scope;

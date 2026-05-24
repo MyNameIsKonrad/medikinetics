@@ -1,0 +1,42 @@
+name: Stamp version on push
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  stamp:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute version
+        id: ver
+        run: |
+          NEW_DATE=$(echo "${{ github.event.head_commit.timestamp }}" | sed 's/T.*//' | tr -d '-')
+          NEW_VER="${NEW_DATE}.0001"
+          echo "new_ver=${NEW_VER}" >> "$GITHUB_OUTPUT"
+          echo "new_full=medikinetics-${NEW_VER}" >> "$GITHUB_OUTPUT"
+
+      - name: Patch sw.js
+        run: |
+          sed -i "s/const VERSION = 'medikinetics-[0-9]\{8\}\.[0-9]\{4\}';/const VERSION = '${{ steps.ver.outputs.new_full }}';/" sw.js
+
+      - name: Patch index.html
+        run: |
+          sed -i 's/\(<span id="version-label"[^>]*>\)[0-9]\{8\}\.[0-9]\{4\}\(<\/span>\)/\1${{ steps.ver.outputs.new_ver }}\2/' index.html
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git diff --quiet && echo "No change." && exit 0
+          git add sw.js index.html
+          git commit -m "chore: stamp version ${{ steps.ver.outputs.new_ver }} [skip ci]"
+          git push
