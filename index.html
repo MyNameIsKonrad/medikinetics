@@ -95,9 +95,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   text-transform: uppercase; letter-spacing: .1em; }
 #chart-svg { width: 100%; display: block; overflow: visible; }
 .chart-tooltip { position: absolute; background: var(--tooltip-bg); border: 1px solid var(--border);
-  border-radius: 8px; padding: 8px 12px; pointer-events: none; display: none; z-index: 10; }
+  border-radius: 8px; padding: 8px 12px; pointer-events: none; display: none; z-index: 10;
+  min-width: 96px; text-align: center; white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
 .chart-tooltip .tt-time { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); }
-.chart-tooltip .tt-val { font-family: 'DM Mono', monospace; font-size: 14px; color: var(--ir); margin-top: 2px; }
+.chart-tooltip .tt-val { font-family: 'DM Mono', monospace; font-size: 14px; color: var(--ir); margin-top: 2px; font-variant-numeric: tabular-nums; }
 .chart-tooltip .tt-unit { font-size: 10px; color: var(--dim); margin-left: 4px; }
 /* Dose buttons */
 .dose-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
@@ -578,9 +580,12 @@ function _showTooltip(clientX, clientY) {
   }
   el.ttTime.textContent = fmt(closest.ts);
   el.ttVal.textContent  = closest.total.toFixed(1);
-  const tLeft = Math.min(clientX - rect.left + 8, rect.width - 120);
+  const TOOLTIP_Y_OFFSET = 90;
+  const ttW = el.tooltip.offsetWidth || 96;
+  const rawLeft = clientX - rect.left - ttW / 2;
+  const tLeft = Math.max(4, Math.min(rawLeft, rect.width - ttW - 4));
   el.tooltip.style.left = tLeft + 'px';
-  el.tooltip.style.top  = Math.max(4, clientY - rect.top - 60) + 'px';
+  el.tooltip.style.top  = Math.max(4, clientY - rect.top - TOOLTIP_Y_OFFSET) + 'px';
   el.tooltip.style.display = 'block';
   if (hideTimer) clearTimeout(hideTimer);
 }
