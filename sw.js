@@ -8,6 +8,11 @@ const CACHE = VERSION;
 
 const APP_ROOT = self.registration.scope;
 const APP_SHELL = new URL('index.html', APP_ROOT).href;
+const FONT_URLS = [
+  new URL('fonts/dm-mono-400.woff2',       APP_ROOT).href,
+  new URL('fonts/dm-mono-500.woff2',       APP_ROOT).href,
+  new URL('fonts/space-grotesk-600.woff2', APP_ROOT).href,
+];
 
 const OFFLINE_HTML = `<!doctype html>
 <html lang="en">
@@ -93,6 +98,16 @@ self.addEventListener('install', event => {
     }
 
     await putShell(response);
+
+    const cache = await caches.open(CACHE);
+    await Promise.all(
+      FONT_URLS.map(url =>
+        fetch(url, { cache: 'reload' })
+          .then(r => { if (r.ok) cache.put(url, r); })
+          .catch(() => {})
+      )
+    );
+
     await self.skipWaiting();
   })());
 });
