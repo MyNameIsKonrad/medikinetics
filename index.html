@@ -407,6 +407,7 @@ let pills          = [];
 let simulatedPills = []; // ephemeral — never saved, cleared on real dose or preset chip
 let offsetIdx = OFFSETS.length - 1; // default: 'now'
 let scrubTime = null; // { ts, label } — set by chart scrub or manual entry
+let _timeInputActive = false; // true while user is inside the native time picker
 let undoItem  = null;
 let undoTimer = null;
 let hideTimer = null;
@@ -726,7 +727,7 @@ function render() {
   }
 
   // Offset chips — skip rebuild while user is in the time picker to avoid destroying focus mid-entry
-  if (document.activeElement?.id !== 'manual-time-input') {
+  if (!_timeInputActive && document.activeElement?.id !== 'manual-time-input') {
     const or = document.getElementById('offset-row');
     const scrubLabel = scrubTime ? scrubTime.label : '--:--';
     or.innerHTML =
@@ -760,12 +761,14 @@ function render() {
 }
 
 function setOffset(i) {
+  _timeInputActive = false;
   offsetIdx = i;
   simulatedPills = [];
   render();
 }
 
 function selectExactTimeChip() {
+  _timeInputActive = true;
   offsetIdx = SCRUB_IDX;
   const input = document.getElementById('manual-time-input');
   if (input && !input.value) {
@@ -898,6 +901,11 @@ document.addEventListener('visibilitychange', () => {
 document.addEventListener('focusin', e => {
   if (e.target.id === 'manual-time-input') selectExactTimeChip();
 });
+document.addEventListener('focusout', e => {
+  if (e.target.id === 'manual-time-input') {
+    setTimeout(() => { _timeInputActive = false; }, 300);
+  }
+});
 document.addEventListener('click', e => {
   if (e.target.id === 'manual-time-input') selectExactTimeChip();
 });
@@ -907,6 +915,7 @@ document.addEventListener('change', e => {
   if (!val) return;
   scrubTime = { ts: timestampForTimeInput(val), label: val };
   offsetIdx = SCRUB_IDX;
+  _timeInputActive = true;
   render();
 });
 
