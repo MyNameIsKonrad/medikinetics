@@ -411,6 +411,11 @@ let undoItem  = null;
 let undoTimer = null;
 let hideTimer = null;
 
+// Shared chart state — written by renderChart, read by tooltip handlers (avoids closure re-allocation each tick)
+const _chart = { data: [], win: null, allPills: [], CW: 0, XPAD: 28, CH: 140, maxConc: 5 };
+let _chartListenersReady = false;
+let _chartScrubbing      = false;
+
 function loadPills() {
   try {
     const raw = localStorage.getItem('medikinetics-v1');
@@ -510,6 +515,78 @@ function showUndo(pill) {
 }
 function hideUndo() {
   document.getElementById('undo-toast').classList.remove('visible');
+}
+
+// ── Chart tooltip handlers (module-level, attached once) ──
+function _showTooltip(clientX, clientY) {
+  const { data, win, allPills, CW, XPAD, CH, maxConc } = _chart;
+  if (!data.length || !win) return;
+  const svg = document.getElementById('chart-svg');
+  if (!svg) return;
+  const yS = v => CH - (v / (maxConc * 1.2)) * CH;
+  const rect = svg.getBoundingClientRect();
+  const relX = clientX - rect.left - XPAD;
+  const fracX = Math.max(0, Math.min(1, relX / CW));
+  const ts = win.start + fracX * (win.end - win.start);
+  const closest = closestPoint(data, ts);
+  const cx = XPAD + fracX * CW;
+  document.getElementById('chart-crosshair')?.setAttribute('x1', cx);
+  document.getElementById('chart-crosshair')?.setAttribute('x2', cx);
+  scrubTime = { ts: closest.ts, label: timeInputValue(closest.ts) };
+  const exactChip = document.getElementById('manual-time-input');
+  if (exactChip) {
+    exactChip.value = scrubTime.label;
+    exactChip.classList.remove('offset-chip-unset');
+  }
+  const dotLayer = document.getElementById('dot-layer');
+  if (dotLayer) {
+    dotLayer.innerHTML = allPills.map(pill => {
+      const v = closest[pill.id] || 0;
+      const r = pill.sim ? 2.5 : 3;
+      return `<circle cx="${cx}" cy="${yS(v)}" r="${r}" fill="${MEDS[pill.type].color}" stroke="var(--bg)" stroke-width="1.5" opacity="${pill.sim ? .5 : 1}"/>`;
+    }).join('') +
+    `<circle cx="${cx}" cy="${yS(closest.total)}" r="4" fill="none" stroke="${MEDS.IR.color}" stroke-width="1.5"/>`;
+  }
+  document.getElementById('tt-time').textContent = fmt(closest.ts);
+  document.getElementById('tt-val').textContent  = closest.total.toFixed(1);
+  const tooltip = document.getElementById('chart-tooltip');
+  const tLeft = Math.min(clientX - rect.left + 8, rect.width - 120);
+  tooltip.style.left = tLeft + 'px';
+  tooltip.style.top  = Math.max(4, clientY - rect.top - 60) + 'px';
+  tooltip.style.display = 'block';
+  if (hideTimer) clearTimeout(hideTimer);
+}
+
+function _hideTooltip(delay = 0) {
+  if (hideTimer) clearTimeout(hideTimer);
+  hideTimer = setTimeout(() => {
+    document.getElementById('chart-tooltip').style.display = 'none';
+    const liveCrosshair = document.getElementById('chart-crosshair');
+    liveCrosshair?.setAttribute('x1', '-999');
+    liveCrosshair?.setAttribute('x2', '-999');
+    const dotLayer = document.getElementById('dot-layer');
+    if (dotLayer) dotLayer.innerHTML = '';
+  }, delay);
+}
+
+function _attachChartHandlers() {
+  if (_chartListenersReady) return;
+  _chartListenersReady = true;
+  const container = document.getElementById('chart-container');
+  container.addEventListener('touchstart', e => {
+    if (e.target.closest('#chart-hit')) {
+      _chartScrubbing = true;
+      _showTooltip(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: true });
+  container.addEventListener('touchmove', e => {
+    if (!_chartScrubbing) return;
+    _showTooltip(e.touches[0].clientX, e.touches[0].clientY);
+    e.preventDefault();
+  }, { passive: false });
+  container.addEventListener('touchend', () => { _chartScrubbing = false; _hideTooltip(2500); });
+  container.addEventListener('mousemove',  e => _showTooltip(e.clientX, e.clientY));
+  container.addEventListener('mouseleave', () => _hideTooltip(0));
 }
 
 // ── Chart ─────────────────────────────────────────────────
@@ -624,68 +701,8 @@ function renderChart(today, simulated, now) {
     <rect x="${XPAD}" y="0" width="${CW}" height="${CH}" fill="transparent" id="chart-hit"/>
   `;
 
-  // Touch/mouse tooltip + crosshair
-  const hit      = document.getElementById('chart-hit');
-  const tooltip  = document.getElementById('chart-tooltip');
-  const crosshair = document.getElementById('chart-crosshair');
-  function showTooltip(clientX, clientY) {
-    const rect = svg.getBoundingClientRect();
-    const relX = clientX - rect.left - XPAD;
-    const fracX = Math.max(0, Math.min(1, relX / CW));
-    const ts = win.start + fracX * (win.end - win.start);
-    const closest = closestPoint(data, ts);
-    const cx = XPAD + fracX * CW;
-    crosshair.setAttribute('x1', cx);
-    crosshair.setAttribute('x2', cx);
-    // scrub chip — write time without re-render (past or future, for inspection)
-    scrubTime = { ts: closest.ts, label: timeInputValue(closest.ts) };
-    const exactChip = document.getElementById('manual-time-input');
-    if (exactChip) {
-      exactChip.value = scrubTime.label;
-      exactChip.classList.remove('offset-chip-unset');
-    }
-    const dotLayer = document.getElementById('dot-layer');
-    if (dotLayer) {
-      dotLayer.innerHTML = allPills.map(pill => {
-        const v = closest[pill.id] || 0;
-        const r = pill.sim ? 2.5 : 3;
-        return `<circle cx="${cx}" cy="${yS(v)}" r="${r}" fill="${MEDS[pill.type].color}" stroke="var(--bg)" stroke-width="1.5" opacity="${pill.sim ? .5 : 1}"/>`;
-      }).join('') +
-      `<circle cx="${cx}" cy="${yS(closest.total)}" r="4" fill="none" stroke="${MEDS.IR.color}" stroke-width="1.5"/>`;
-    }
-    document.getElementById('tt-time').textContent = fmt(closest.ts);
-    document.getElementById('tt-val').textContent  = closest.total.toFixed(1);
-    const tLeft = Math.min(clientX - rect.left + 8, rect.width - 120);
-    tooltip.style.left = tLeft + 'px';
-    tooltip.style.top  = Math.max(4, clientY - rect.top - 60) + 'px';
-    tooltip.style.display = 'block';
-    if (hideTimer) clearTimeout(hideTimer);
-  }
-
-  function hideTooltip(delay = 0) {
-    if (hideTimer) clearTimeout(hideTimer);
-    hideTimer = setTimeout(() => {
-      tooltip.style.display = 'none';
-      // Re-query crosshair: a re-render between touchend and this timeout fires
-      // would otherwise leave us writing to a detached node.
-      const liveCrosshair = document.getElementById('chart-crosshair');
-      liveCrosshair?.setAttribute('x1', '-999');
-      liveCrosshair?.setAttribute('x2', '-999');
-      const dotLayer = document.getElementById('dot-layer');
-      if (dotLayer) dotLayer.innerHTML = '';
-    }, delay);
-  }
-
-  hit.addEventListener('touchstart', e => {
-    showTooltip(e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: true });
-  hit.addEventListener('touchmove', e => {
-    showTooltip(e.touches[0].clientX, e.touches[0].clientY);
-    e.preventDefault();
-  }, { passive: false });
-  hit.addEventListener('touchend', () => hideTooltip(2500));
-  hit.addEventListener('mousemove',  e => showTooltip(e.clientX, e.clientY));
-  hit.addEventListener('mouseleave', () => hideTooltip(0));
+  Object.assign(_chart, { data, win, allPills, CW, XPAD, CH: 140, maxConc });
+  _attachChartHandlers();
 }
 
 // ── Render ────────────────────────────────────────────────
@@ -708,12 +725,14 @@ function render() {
     });
   }
 
-  // Offset chips
-  const or = document.getElementById('offset-row');
-  const scrubLabel = scrubTime ? scrubTime.label : '--:--';
-  or.innerHTML =
-    `<input type="time" id="manual-time-input" class="offset-chip exact-time-chip ${offsetIdx === SCRUB_IDX ? 'active' : ''} ${!scrubTime ? 'offset-chip-unset' : ''}" value="${scrubTime ? scrubLabel : ''}" aria-label="Exact dose time">` +
-    OFFSETS.map((o, i) => `<button class="offset-chip ${i === offsetIdx ? 'active' : ''}" onclick="setOffset(${i})">${o.label}</button>`).join('');
+  // Offset chips — skip rebuild while user is in the time picker to avoid destroying focus mid-entry
+  if (document.activeElement?.id !== 'manual-time-input') {
+    const or = document.getElementById('offset-row');
+    const scrubLabel = scrubTime ? scrubTime.label : '--:--';
+    or.innerHTML =
+      `<input type="time" id="manual-time-input" class="offset-chip exact-time-chip ${offsetIdx === SCRUB_IDX ? 'active' : ''} ${!scrubTime ? 'offset-chip-unset' : ''}" value="${scrubTime ? scrubLabel : ''}" aria-label="Exact dose time">` +
+      OFFSETS.map((o, i) => `<button class="offset-chip ${i === offsetIdx ? 'active' : ''}" onclick="setOffset(${i})">${o.label}</button>`).join('');
+  }
 
   // In progress — sim cards first, then active confirmed doses
   const inProgress = today.filter(p => pillIsVisible(p, now));
@@ -866,7 +885,15 @@ function logRowHTML(pill, now) {
 document.documentElement.style.setProperty('--undo-duration', `${UNDO_DURATION_MS / 1000}s`);
 pills = loadPills();
 render();
-setInterval(render, 30000);
+let _renderInterval = setInterval(render, 30000);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    clearInterval(_renderInterval);
+  } else {
+    render();
+    _renderInterval = setInterval(render, 30000);
+  }
+});
 
 document.addEventListener('focusin', e => {
   if (e.target.id === 'manual-time-input') selectExactTimeChip();
