@@ -151,7 +151,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .phase-tag { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim); margin-left: 5px; }
 .phase-time { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); }
 .track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
-.fill-bar { height: 100%; border-radius: 3px; transition: width var(--t-fill) ease; }
+.fill-bar { height: 100%; border-radius: 3px; transform-origin: left center; transition: transform var(--t-fill) ease; }
 /* Log */
 .log-row { display: flex; align-items: center; gap: 8px;
   padding: 12px 0; border-bottom: 1px solid var(--surface); contain: layout style; }
@@ -179,9 +179,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   overflow: hidden; }
 #undo-toast.visible { display: flex; }
 #undo-toast.visible::after { content: ''; position: absolute; bottom: 0; left: 0;
-  height: 2px; background: var(--ir); border-radius: 0 0 12px 12px;
+  width: 100%; height: 2px; background: var(--ir); border-radius: 0 0 12px 12px;
+  transform-origin: left;
   animation: drain var(--undo-duration) linear forwards; }
-@keyframes drain { from { width: 100%; } to { width: 0%; } }
+@keyframes drain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 #undo-btn { background: none; border: none; color: var(--ir); font-family: 'DM Mono', monospace;
   font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; letter-spacing: .06em;
   transition: transform var(--t-base) ease-out; }
@@ -442,9 +443,11 @@ let undoTimer = null;
 let hideTimer = null;
 
 // Shared chart state — written by renderChart, read by tooltip handlers (avoids closure re-allocation each tick)
-const _chart = { data: [], win: null, allPills: [], CW: 0, XPAD: 28, CH: 140, maxConc: 5 };
+const _chart = { data: [], win: null, allPills: [], CW: 0, XPAD: 28, CH: 140, maxConc: 5,
+  el: { svg: null, crosshair: null, dotLayer: null, tooltip: null, ttTime: null, ttVal: null, timeInput: null } };
 let _chartListenersReady = false;
 let _chartScrubbing      = false;
+let _lastSvgKey          = null;
 
 function loadPills() {
   try {
@@ -549,53 +552,47 @@ function hideUndo() {
 
 // ── Chart tooltip handlers (module-level, attached once) ──
 function _showTooltip(clientX, clientY) {
-  const { data, win, allPills, CW, XPAD, CH, maxConc } = _chart;
-  if (!data.length || !win) return;
-  const svg = document.getElementById('chart-svg');
-  if (!svg) return;
+  const { data, win, allPills, CW, XPAD, CH, maxConc, el } = _chart;
+  if (!data.length || !win || !el.svg) return;
   const yS = v => CH - (v / (maxConc * 1.2)) * CH;
-  const rect = svg.getBoundingClientRect();
+  const rect = el.svg.getBoundingClientRect();
   const relX = clientX - rect.left - XPAD;
   const fracX = Math.max(0, Math.min(1, relX / CW));
   const ts = win.start + fracX * (win.end - win.start);
   const closest = closestPoint(data, ts);
   const cx = XPAD + fracX * CW;
-  document.getElementById('chart-crosshair')?.setAttribute('x1', cx);
-  document.getElementById('chart-crosshair')?.setAttribute('x2', cx);
+  el.crosshair?.setAttribute('x1', cx);
+  el.crosshair?.setAttribute('x2', cx);
   scrubTime = { ts: closest.ts, label: timeInputValue(closest.ts) };
-  const exactChip = document.getElementById('manual-time-input');
-  if (exactChip) {
-    exactChip.value = scrubTime.label;
-    exactChip.classList.remove('offset-chip-unset');
+  if (el.timeInput) {
+    el.timeInput.value = scrubTime.label;
+    el.timeInput.classList.remove('offset-chip-unset');
   }
-  const dotLayer = document.getElementById('dot-layer');
-  if (dotLayer) {
-    dotLayer.innerHTML = allPills.map(pill => {
+  if (el.dotLayer) {
+    el.dotLayer.innerHTML = allPills.map(pill => {
       const v = closest[pill.id] || 0;
       const r = pill.sim ? 2.5 : 3;
       return `<circle cx="${cx}" cy="${yS(v)}" r="${r}" fill="${MEDS[pill.type].color}" stroke="var(--bg)" stroke-width="1.5" opacity="${pill.sim ? .5 : 1}"/>`;
     }).join('') +
     `<circle cx="${cx}" cy="${yS(closest.total)}" r="4" fill="none" stroke="${MEDS.IR.color}" stroke-width="1.5"/>`;
   }
-  document.getElementById('tt-time').textContent = fmt(closest.ts);
-  document.getElementById('tt-val').textContent  = closest.total.toFixed(1);
-  const tooltip = document.getElementById('chart-tooltip');
+  el.ttTime.textContent = fmt(closest.ts);
+  el.ttVal.textContent  = closest.total.toFixed(1);
   const tLeft = Math.min(clientX - rect.left + 8, rect.width - 120);
-  tooltip.style.left = tLeft + 'px';
-  tooltip.style.top  = Math.max(4, clientY - rect.top - 60) + 'px';
-  tooltip.style.display = 'block';
+  el.tooltip.style.left = tLeft + 'px';
+  el.tooltip.style.top  = Math.max(4, clientY - rect.top - 60) + 'px';
+  el.tooltip.style.display = 'block';
   if (hideTimer) clearTimeout(hideTimer);
 }
 
 function _hideTooltip(delay = 0) {
   if (hideTimer) clearTimeout(hideTimer);
   hideTimer = setTimeout(() => {
-    document.getElementById('chart-tooltip').style.display = 'none';
-    const liveCrosshair = document.getElementById('chart-crosshair');
-    liveCrosshair?.setAttribute('x1', '-999');
-    liveCrosshair?.setAttribute('x2', '-999');
-    const dotLayer = document.getElementById('dot-layer');
-    if (dotLayer) dotLayer.innerHTML = '';
+    const { el } = _chart;
+    el.tooltip.style.display = 'none';
+    el.crosshair?.setAttribute('x1', '-999');
+    el.crosshair?.setAttribute('x2', '-999');
+    if (el.dotLayer) el.dotLayer.innerHTML = '';
   }, delay);
 }
 
@@ -689,6 +686,14 @@ function renderChart(today, simulated, now) {
 
   const nowX = Math.max(XPAD, Math.min(W, xS(now)));
 
+  // Skip SVG rebuild when nothing has changed (curve cached + now marker same pixel)
+  const svgKey = `${_curveCache.key}|${Math.round(nowX)}`;
+  if (svgKey === _lastSvgKey) {
+    Object.assign(_chart, { data, win, allPills, CW, XPAD, CH: 140, maxConc });
+    return;
+  }
+  _lastSvgKey = svgKey;
+
   // Phase markers — sim get dashed + "sim" label
   const markers = allPills.map(pill => {
     const ts = pill.takenAt;
@@ -732,6 +737,9 @@ function renderChart(today, simulated, now) {
   `;
 
   Object.assign(_chart, { data, win, allPills, CW, XPAD, CH: 140, maxConc });
+  // Refresh SVG-internal element refs (invalidated by innerHTML replacement above)
+  _chart.el.crosshair = document.getElementById('chart-crosshair');
+  _chart.el.dotLayer  = document.getElementById('dot-layer');
   _attachChartHandlers();
 }
 
@@ -762,6 +770,8 @@ function render() {
     or.innerHTML =
       `<input type="time" id="manual-time-input" class="offset-chip exact-time-chip ${offsetIdx === SCRUB_IDX ? 'active' : ''} ${!scrubTime ? 'offset-chip-unset' : ''}" value="${scrubTime ? scrubLabel : ''}" aria-label="Exact dose time">` +
       OFFSETS.map((o, i) => `<button class="offset-chip ${i === offsetIdx ? 'active' : ''}" onclick="setOffset(${i})">${o.label}</button>`).join('');
+    // Refresh cached ref — element recreated by innerHTML above
+    _chart.el.timeInput = document.getElementById('manual-time-input');
   }
 
   // In progress — sim cards first, then active confirmed doses
@@ -846,7 +856,7 @@ function pillCardBodyHTML(pill, now) {
           <span class="phase-mg" style="color:${color}">${ph.mg} mg${tag}</span>
           <span class="phase-time">${time}</span>
         </div>
-        <div class="track"><div class="fill-bar" style="width:${pct}%;background:${fillBg}"></div></div>
+        <div class="track"><div class="fill-bar" style="transform:scaleX(${((100-pct)/100).toFixed(4)});background:${fillBg}"></div></div>
       </div>`;
   }).join('');
 }
@@ -916,6 +926,12 @@ function logRowHTML(pill, now) {
 // ── Init ──────────────────────────────────────────────────
 document.documentElement.style.setProperty('--undo-duration', `${UNDO_DURATION_MS / 1000}s`);
 pills = loadPills();
+// Cache stable (non-SVG) element refs once — SVG-internal refs are refreshed in renderChart
+_chart.el.tooltip   = document.getElementById('chart-tooltip');
+_chart.el.ttTime    = document.getElementById('tt-time');
+_chart.el.ttVal     = document.getElementById('tt-val');
+_chart.el.timeInput = document.getElementById('manual-time-input');
+_chart.el.svg       = document.getElementById('chart-svg');
 render();
 let _renderInterval = setInterval(render, 30000);
 document.addEventListener('visibilitychange', () => {
@@ -953,20 +969,23 @@ document.addEventListener('change', e => {
   const SEL = '.dose-btn, .offset-chip, .fed-toggle, .x-btn, #undo-btn';
   const MIN_MS = 90;
   const pressAt = new WeakMap();
+  const pressed = new Set();
   document.addEventListener('touchstart', e => {
     const el = e.target.closest(SEL);
     if (!el || el.disabled) return;
     el.classList.add('pressing');
     pressAt.set(el, Date.now());
+    pressed.add(el);
   }, { passive: true });
   document.addEventListener('touchend', () => {
-    document.querySelectorAll('.pressing').forEach(el => {
+    pressed.forEach(el => {
       const delay = Math.max(0, MIN_MS - (Date.now() - (pressAt.get(el) || 0)));
-      setTimeout(() => el.classList.remove('pressing'), delay);
+      setTimeout(() => { el.classList.remove('pressing'); pressed.delete(el); }, delay);
     });
   });
   document.addEventListener('touchcancel', () => {
-    document.querySelectorAll('.pressing').forEach(el => el.classList.remove('pressing'));
+    pressed.forEach(el => el.classList.remove('pressing'));
+    pressed.clear();
   });
 })();
 
