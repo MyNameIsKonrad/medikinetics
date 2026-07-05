@@ -28,7 +28,7 @@ This represents how it is on average. As a diabetic, I'm likely absorbing faster
 
 The two important files (`index.html`, `sw.js`) are hosted in this GitHub Pages repo.
 
-I use it as a home screen PWA, it uses local storage and works offline which is dope. I have not managed to lose any data yet.
+I use it as a home screen PWA, it uses local storage and works offline which is dope. Dose history is kept forever now, and there's an export json button at the bottom — so losing data would take actual effort instead of one Safari cleanup.
 
 ## Disclaimer
 
