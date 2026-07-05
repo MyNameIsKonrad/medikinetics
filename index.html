@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Medikinetics">
 <meta name="theme-color" content="#080d17">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 <title>Medikinetics</title>
 <style>
 @font-face {
@@ -193,6 +196,16 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .pill-card--sim { border-color: var(--ir-tint-sim); border-style: dashed; opacity: .8; }
 .sim-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim);
   text-transform: uppercase; letter-spacing: .06em; margin-top: 6px; }
+/* Data footer */
+.data-footer { display: flex; justify-content: space-between; align-items: center;
+  margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); }
+.data-footer span { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .1em; }
+#export-btn { background: none; border: 1px solid var(--border); border-radius: 20px;
+  color: var(--dim); font-family: 'DM Mono', monospace; font-size: 11px;
+  padding: 4px 12px; cursor: pointer; touch-action: manipulation;
+  transition: transform var(--t-base) ease-out, color var(--t-base), border-color var(--t-base); }
+#export-btn.pressing, #export-btn:active { transform: scale(0.92); transition: transform var(--t-press) ease-in; }
 /* Update banner */
 #update-banner { position: fixed; top: 0; left: 0; right: 0;
   background: var(--surface); border-bottom: 1px solid var(--border);
@@ -269,6 +282,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   </div>
 
   <div class="empty" id="empty-state">nothing logged yet</div>
+
+  <div class="data-footer" id="data-footer" style="display:none">
+    <span id="dose-count"></span>
+    <button id="export-btn" onclick="exportData()">export json</button>
+  </div>
 </div>
 
 <div id="undo-toast">
@@ -457,8 +475,8 @@ function loadPills() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    const cutoff = Date.now() - 48 * 3600000;
-    return parsed.filter(p => p && p.takenAt > cutoff && typeof p.type === 'string' && MEDS[p.type]);
+    // Full history is kept forever — rendering filters to last24h; storage cost is ~60 bytes/dose.
+    return parsed.filter(p => p && typeof p.takenAt === 'number' && p.takenAt > 0 && typeof p.type === 'string' && MEDS[p.type]);
   } catch (e) { console.error('MedKit: load failed', e); return []; }
 }
 
@@ -541,6 +559,32 @@ function undoRemove() {
   undoItem = null;
   hideUndo();
   render();
+}
+
+async function exportData() {
+  const payload = {
+    app: 'medikinetics',
+    exportedAt: new Date().toISOString(),
+    doses: [...pills].sort((a, b) => a.takenAt - b.takenAt).map(p => ({
+      type: p.type,
+      mg: MEDS[p.type].totalMg,
+      takenAt: p.takenAt,
+      time: new Date(p.takenAt).toISOString(),
+      ...(hasFedToggle(p) ? { fed: !!p.fed } : {}),
+    })),
+  };
+  const name = `medikinetics-${new Date().toISOString().slice(0, 10)}.json`;
+  const file = new File([JSON.stringify(payload, null, 2)], name, { type: 'application/json' });
+  // iOS Safari: share sheet (AirDrop / Save to Files). Elsewhere: plain download.
+  if (navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); return; }
+    catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(file);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function showUndo(pill) {
@@ -691,8 +735,8 @@ function renderChart(today, simulated, now) {
 
   const nowX = Math.max(XPAD, Math.min(W, xS(now)));
 
-  // Skip SVG rebuild when nothing has changed (curve cached + now marker same pixel)
-  const svgKey = `${_curveCache.key}|${Math.round(nowX)}`;
+  // Skip SVG rebuild when nothing has changed (curve cached + same width + now marker same pixel)
+  const svgKey = `${_curveCache.key}|${W}|${Math.round(nowX)}`;
   if (svgKey === _lastSvgKey) {
     Object.assign(_chart, { data, win, allPills, CW, XPAD, CH: 140, maxConc });
     return;
@@ -802,6 +846,14 @@ function render() {
   }
 
   document.getElementById('empty-state').style.display = today.length ? 'none' : '';
+
+  // Data footer — full history count (not just 24h)
+  const footer = document.getElementById('data-footer');
+  footer.style.display = pills.length ? '' : 'none';
+  if (pills.length) {
+    document.getElementById('dose-count').textContent =
+      `${pills.length} dose${pills.length === 1 ? '' : 's'} stored`;
+  }
 }
 
 function setOffset(i) {
@@ -948,6 +1000,13 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// Rotation / window resize — redraw the chart at the new width without waiting for the 30s tick
+let _resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(render, 150);
+});
+
 document.addEventListener('focusin', e => {
   if (e.target.id === 'manual-time-input') selectExactTimeChip();
 });
@@ -971,7 +1030,7 @@ document.addEventListener('change', e => {
 
 // ── Press feedback (iOS :active workaround) ───────────────
 (function() {
-  const SEL = '.dose-btn, .offset-chip, .fed-toggle, .x-btn, #undo-btn';
+  const SEL = '.dose-btn, .offset-chip, .fed-toggle, .x-btn, #undo-btn, #export-btn';
   const MIN_MS = 90;
   const pressAt = new WeakMap();
   const pressed = new Set();
@@ -1004,7 +1063,10 @@ if ('serviceWorker' in navigator) {
     if (e.data?.type === 'VERSION') {
       const el = document.getElementById('version-label');
       const prev = el?.textContent;
-      if (el) el.textContent = e.data.version;
+      if (el) {
+        el.textContent = e.data.version;
+        el.style.opacity = ''; // drop the "unconfirmed" dim once the SW reports the real version
+      }
       if (prev && prev !== e.data.version) {
         document.getElementById('update-banner')?.classList.add('visible');
       }
