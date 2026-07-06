@@ -8,10 +8,15 @@ const CACHE = VERSION;
 
 const APP_ROOT = self.registration.scope;
 const APP_SHELL = new URL('index.html', APP_ROOT).href;
-const FONT_URLS = [
-  new URL('fonts/dm-mono-400.woff2',       APP_ROOT).href,
-  new URL('fonts/dm-mono-500.woff2',       APP_ROOT).href,
-  new URL('fonts/space-grotesk-600.woff2', APP_ROOT).href,
+const PRECACHE_URLS = [
+  new URL('fonts/dm-mono-400.woff2',        APP_ROOT).href,
+  new URL('fonts/dm-mono-500.woff2',        APP_ROOT).href,
+  new URL('fonts/space-grotesk-600.woff2',  APP_ROOT).href,
+  new URL('manifest.webmanifest',           APP_ROOT).href,
+  new URL('icons/icon.svg',                 APP_ROOT).href,
+  new URL('icons/icon-192.png',             APP_ROOT).href,
+  new URL('icons/icon-512.png',             APP_ROOT).href,
+  new URL('icons/apple-touch-icon.png',     APP_ROOT).href,
 ];
 
 const OFFLINE_HTML = `<!doctype html>
@@ -101,7 +106,7 @@ self.addEventListener('install', event => {
 
     const cache = await caches.open(CACHE);
     await Promise.all(
-      FONT_URLS.map(url =>
+      PRECACHE_URLS.map(url =>
         fetch(url, { cache: 'reload' })
           .then(r => { if (r.ok) cache.put(url, r); })
           .catch(() => {})
