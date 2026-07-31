@@ -56,7 +56,7 @@
 :root {
   --bg: #080d17; --surface: #0f1623; --border: #1a2235;
   --muted: #2d3f57; --dim: #3a5070; --soft: #4a6080;
-  --text: #dce8f5; --ir: #5bb8f5; --cr: #9d7fd4; --green: #4ecb8d;
+  --text: #dce8f5; --ir: #5bb8f5; --cr: #9d7fd4; --sym: #d4ad68; --green: #4ecb8d;
   --now: #ff6b6b; --clearing: #614f8a; --rising: #94b8d4;
   --toast-text: #8ba3be; --tooltip-bg: #0a1020;
   --safe-top: env(safe-area-inset-top, 0px);
@@ -72,6 +72,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 #app { max-width: 440px; margin: 0 auto;
   padding: calc(var(--safe-top) + 24px) 20px calc(var(--safe-bot) + 48px); }
 .mono { font-family: 'DM Mono', monospace; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .header { margin-bottom: 24px; }
 .title { font-size: 20px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .sub { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim);
@@ -105,7 +107,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .chart-tooltip .tt-val { font-family: 'DM Mono', monospace; font-size: 14px; color: var(--ir); margin-top: 2px; font-variant-numeric: tabular-nums; }
 .chart-tooltip .tt-unit { font-size: 10px; color: var(--dim); margin-left: 4px; }
 /* Dose buttons */
-.dose-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.dose-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
 .dose-btn { display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 14px 8px; background: transparent; border: 1.5px solid var(--muted); border-radius: 16px;
   color: var(--text); cursor: pointer; touch-action: manipulation; transition: opacity var(--t-base), transform var(--t-base) ease-out; }
@@ -308,6 +310,13 @@ const MEDS = {
          // still slows absorption vs pure IR. Yields Tmax ~1.6h, consistent with
          // Haessler 2008 "steady absorption / single Tmax" under fasted conditions.
          fastedPhases: [{ offsetHours: 0, mg: 20, durationHours: 6, ka: 1.0 }] },
+  // Symkinet MR ChPL: ~50% immediate release and ~50% released after ~4h.
+  // It reports no overall bioavailability difference with/without food, but
+  // not enough timing data for a separate food phase model. Delayed ka=0.7
+  // is an app-level approximation, not a measured Symkinet constant.
+  SYMR20: { label: 'Symkinet MR', shortLabel: 'SYM', sublabel: '20mg', totalMg: 20, color: '#d4ad68',
+            phases: [{ offsetHours: 0, mg: 10, durationHours: 4, ka: 2.0 },
+                     { offsetHours: 4, mg: 10, durationHours: 4, ka: 0.7 }] },
 };
 
 const OFFSETS = [
@@ -807,6 +816,7 @@ function render() {
       const btn = document.createElement('button');
       btn.className = 'dose-btn';
       btn.innerHTML = `<span class="dose-btn-name">${def.label}</span><span class="dose-btn-sub">${def.sublabel}</span>`;
+      btn.setAttribute('aria-label', `Log ${def.label} ${def.totalMg} milligrams`);
       btn.onclick = () => logPill(type);
       dg.appendChild(btn);
     });
@@ -964,6 +974,9 @@ function pillCardHTML(pill, now) {
 
 function logRowHTML(pill, now) {
   const def      = MEDS[pill.type];
+  const typeLabel = def.shortLabel
+    ? `<span aria-hidden="true">${def.shortLabel}</span><span class="sr-only">${def.label}</span>`
+    : def.label;
   const conc     = concAtTime([pill], now);
   const visible  = pillIsVisible(pill, now);
   const rising   = visible && concAtTime([pill], now + RISING_LOOKAHEAD_MS) > conc;
@@ -972,7 +985,7 @@ function logRowHTML(pill, now) {
   const sc = !visible ? 'var(--muted)' : rising ? 'var(--rising)' : clearing ? 'var(--clearing)' : 'var(--green)';
   return `
     <div class="log-row ${visible ? '' : 'expired'}">
-      <span class="log-type" style="color:${def.color}">${def.label}</span>
+      <span class="log-type" style="color:${def.color}">${typeLabel}</span>
       <span class="log-mg">${def.totalMg} mg</span>
       <span class="log-t">${fmt(pill.takenAt)}</span>
       <span class="log-status" style="color:${sc}">${st}</span>

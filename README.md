@@ -1,6 +1,6 @@
 # Medikinetics
 
-A personal pharmacokinetic tracker for Medikinet IR and CR.
+A personal pharmacokinetic tracker for Medikinet IR/CR and Symkinet MR.
 
 I use this to take my meds responsibly. Stay aware of my daily intake – just basic enough to not avoid logging doses. More importantly – to visualise stacking doses – which affects how I feel but too abstract to be my mental math.
 
@@ -15,6 +15,7 @@ I enjoy this project because it introduces me to basic development concepts and 
 | IR ½ | Methylphenidate IR | 5mg | 4h |
 | IR | Methylphenidate IR | 10mg | 4h |
 | CR | Methylphenidate CR | 20mg | 8h (50/50 bead, modeled in two phases) |
+| Symkinet MR | Methylphenidate MR | 20mg | 8h (50/50; second release at ~4h) |
 
 ## Model
 

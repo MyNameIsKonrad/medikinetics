@@ -19,6 +19,7 @@ Check `git log` for the latest. Phases completed so far:
 - Color clarification (PRs #33–#34): dose button borders → neutral --muted; fed toggle → --green; CR recolored to lavender (#9d7fd4); button sublabels simplified to "5mg" / "10mg" / "20mg"; dose buttons neutral (no type color — color lives on graph + cards only)
 - Project hygiene (PR #37): PR template, issue templates, workflow rules, Decision Log, AGENTS.md as universal source of truth
 - Data safety + identity: dose history kept forever (48h storage cutoff removed), JSON export via share sheet, app icon (M-shaped double-dose curve) + web manifest, resize/rotation redraw, version-label undim
+- Symkinet MR 20mg: separate `SYMR20` medication type; 10mg immediate + 10mg at +4h; no food toggle; four dose buttons use a 2×2 grid
 
 ## Key architectural decisions
 - Single-file: all app logic lives in `index.html`. Keep it that way.
@@ -32,6 +33,7 @@ Check `git log` for the latest. Phases completed so far:
 - `.pill-card` carries `data-id="${pill.id}"`. `toggleFed()` updates toggle DOM directly (class toggles on `.fed-track` and `.fed-lbl` only) then calls `renderChart()` + stats inline — does NOT call `render()`, so the `.2s` CSS slide transition plays on the thumb
 - Dose button debounce removed. After a real log, all `.dose-btn` get `disabled` + `.just-fired` (opacity .35) for 400ms. The `touchstart` handler skips `disabled` elements — feedback and action stay in sync
 - `--cr: #9d7fd4` (lavender/violet); `--clearing: #614f8a`. `MEDS.CR.color` must match `--cr`
+- `--sym: #d4ad68` (muted saffron). `MEDS.SYMR20.color` must match `--sym`
 
 ## Workflow — follow exactly
 1. Read `git log` and recent merged PRs to understand current state before starting
@@ -55,6 +57,7 @@ This project accepts contributions from multiple AI agents (Claude: `claude/<slu
 | IR ½ | Methylphenidate IR | 5mg | Single phase, ka=2.0 |
 | IR | Methylphenidate IR | 10mg | Single phase, ka=2.0 |
 | CR | Methylphenidate CR | 20mg | **Fasted (default):** 20mg at 0h (ka=1.0). **Fed:** 10mg at 0h (ka=2.0) + 10mg at +4h (ka=0.7) |
+| Symkinet MR | Methylphenidate MR | 20mg | 10mg at 0h (ka=2.0) + 10mg at +4h (ka=0.7); no food-specific mode |
 
 ## Decision Log
 
@@ -87,3 +90,5 @@ Judgment calls made during development. Add an entry whenever a non-obvious choi
 | 23 | Dose history kept forever; rendering filters, storage never prunes | The 48h cutoff in `loadPills` silently destroyed medication history. All display/math paths already filter through `last24h()`, so keeping everything changes no behavior. Cost ~60 bytes/dose (~25 KB/year) against a ~5 MB localStorage budget. Corrupt-entry validation now explicit (`typeof takenAt === 'number'`) instead of riding on the cutoff comparison. | data-safety |
 | 24 | Export via Web Share API file with blob-download fallback | Target is iPhone Safari standalone PWA: `navigator.share({files})` opens the share sheet (AirDrop / Save to Files), which is the native path; `<a download>` is unreliable in standalone mode. Exported doses are enriched (mg, ISO time) so the file is readable by humans and future tools without the MEDS table. `AbortError` (user closed the sheet) is not a fallback trigger. | data-safety |
 | 25 | App icon: M-shaped curve — two stacked Bateman humps (IR ka=2.0, doses ~3.2h apart), generated PNGs from `icons/icon.svg` | The icon is the app's own math: two stacked doses draw a natural "M" (Medikinetics) and depict dose stacking, the core reason the app exists. apple-touch-icon must be PNG (iOS ignores SVG), so PNGs are rendered from the SVG source via macOS qlmanage/sips — no build dependency added. SVG doubles as favicon. | data-safety |
+| 26 | Symkinet MR 20mg is a distinct `SYMR20` type with 10mg at 0h (ka=2.0) + 10mg at +4h (ka=0.7), and no food toggle | The official Polish ChPL specifies approximately 50% immediate release, the remainder after about 4h, and no difference in overall bioavailability with or without food. The shared `KE=0.347` matches its reported ~2h half-life. The delayed `ka=0.7` reuses the app's existing biphasic approximation and is not a measured Symkinet constant. Keeping a separate type avoids incorrectly inheriting Medikinet CR's fasted single-phase model. | symkinet-mr-20 |
+| 27 | Symkinet uses muted saffron `--sym: #d4ad68`; four dose buttons use a 2×2 grid | Color remains output-only and separates Symkinet from IR blue, CR lavender, food-state green, and the red now marker. Two columns preserve equal, generous iPhone tap targets instead of leaving a fourth button stranded on a second row. | symkinet-mr-20 |
