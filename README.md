@@ -1,6 +1,6 @@
 # Medikinetics
 
-A personal pharmacokinetic tracker for Medikinet IR/CR and Symkinet MR.
+A personal pharmacokinetic tracker for Concerta (earlier doses of Medikinet IR/CR and Symkinet MR stay in the history).
 
 I use this to take my meds responsibly. Stay aware of my daily intake – just basic enough to not avoid logging doses. More importantly – to visualise stacking doses – which affects how I feel but too abstract to be my mental math.
 
@@ -12,6 +12,7 @@ I enjoy this project because it introduces me to basic development concepts and 
 
 | Label | Drug | Dose | Window |
 | --- | --- | --- | --- |
+| Concerta | Methylphenidate OROS | 72 / 36 / 18mg | 12h (about a fifth at once, the rest released steadily, peaking around 7h) |
 | IR | Methylphenidate IR | 5mg | 4h |
 | IR | Methylphenidate IR | 10mg | 4h |
 | CR | Methylphenidate CR | 20mg | 6h fasted (default, single phase) · 8h with the food toggle on (50/50 bead, modeled in two phases) |

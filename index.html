@@ -56,7 +56,7 @@
 :root {
   --bg: #080d17; --surface: #0f1623; --border: #1a2235;
   --muted: #2d3f57; --dim: #3a5070; --soft: #4a6080;
-  --text: #dce8f5; --ir: #5bb8f5; --cr: #9d7fd4; --sym: #d4ad68; --green: #4ecb8d;
+  --text: #dce8f5; --ir: #5bb8f5; --cr: #9d7fd4; --sym: #d4ad68; --con: #e58fb8; --green: #4ecb8d;
   --now: #ff6b6b; --clearing: #614f8a; --rising: #94b8d4;
   --toast-text: #8ba3be; --tooltip-bg: #0a1020;
   --safe-top: env(safe-area-inset-top, 0px);
@@ -113,6 +113,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   color: var(--text); cursor: pointer; touch-action: manipulation; transition: opacity var(--t-base), transform var(--t-base) ease-out; }
 .dose-btn.pressing, .dose-btn:active { transform: scale(0.91); transition: transform var(--t-press) ease-in; }
 .dose-btn.just-fired { opacity: .35; }
+.dose-btn--wide { grid-column: 1 / -1; }
 .dose-btn-name { font-size: 16px; font-weight: 700; letter-spacing: .04em; }
 .dose-btn-sub { font-family: 'DM Mono', monospace; font-size: 10px; opacity: .6; }
 /* Offset chips */
@@ -298,12 +299,32 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 
 <script>
 // ── Med definitions ──────────────────────────────────────
+// Concerta (OROS methylphenidate): a 22% immediate-release overcoat, then an osmotic core
+// that releases the other 78% at a slow-fast-slow rate over ~12h. Modelled as a bolus plus
+// three zero-order (constant-rate) windows; each released amount absorbs at ka=2.0.
+// Fractions from the FDA biopharmaceutics review's in-vivo release estimate (Fig 9.1)
+// and label §11.1. Gives Tmax 7.2h (label: 6.8 ± 1.8h, adults, 18mg) and a 1h value at
+// 55% of peak (label Fig 1: ~57%). Food has no meaningful effect (label), so no fed mode.
+// `windowHours` is the PK release window; `durationHours` mirrors it for display.
+const concerta = mg => ({
+  label: 'Concerta', shortLabel: 'CON', sublabel: `${mg}mg`, totalMg: mg, color: '#e58fb8',
+  phases: [{ offsetHours: 0, mg: mg * 0.22, durationHours: 1, ka: 2.0 },
+           { offsetHours: 1, mg: mg * 0.20, durationHours: 3, windowHours: 3, ka: 2.0 },
+           { offsetHours: 4, mg: mg * 0.36, durationHours: 3, windowHours: 3, ka: 2.0 },
+           { offsetHours: 7, mg: mg * 0.22, durationHours: 5, windowHours: 5, ka: 2.0 }],
+});
+
+// MEDS keys are storage keys: loadPills drops doses whose type is missing, so a med that is
+// no longer taken stays here with `retired: true` (no dose button, history still renders).
 const MEDS = {
-  IRH: { label: 'IR',   sublabel: '5mg',           totalMg: 5,  color: '#5bb8f5',
+  CON72: concerta(72),
+  CON36: concerta(36),
+  CON18: concerta(18),
+  IRH: { label: 'IR',   sublabel: '5mg',           totalMg: 5,  color: '#5bb8f5', retired: true,
          phases: [{ offsetHours: 0, mg: 5,  durationHours: 4, ka: 2.0 }] },
-  IR:  { label: 'IR',   sublabel: '10mg',          totalMg: 10, color: '#5bb8f5',
+  IR:  { label: 'IR',   sublabel: '10mg',          totalMg: 10, color: '#5bb8f5', retired: true,
          phases: [{ offsetHours: 0, mg: 10, durationHours: 4, ka: 2.0 }] },
-  CR:  { label: 'CR',   sublabel: '20mg',          totalMg: 20, color: '#9d7fd4',
+  CR:  { label: 'CR',   sublabel: '20mg',          totalMg: 20, color: '#9d7fd4', retired: true,
          phases:       [{ offsetHours: 0, mg: 10, durationHours: 4, ka: 2.0 },
                         { offsetHours: 4, mg: 10, durationHours: 4, ka: 0.7 }],
          // ka=1.0: judgment call — ER beads release early without food but bead matrix
@@ -314,7 +335,7 @@ const MEDS = {
   // It reports no overall bioavailability difference with/without food, but
   // not enough timing data for a separate food phase model. Delayed ka=0.7
   // is an app-level approximation, not a measured Symkinet constant.
-  SYMR20: { label: 'Symkinet MR', shortLabel: 'SYM', sublabel: '20mg', totalMg: 20, color: '#d4ad68',
+  SYMR20: { label: 'Symkinet MR', shortLabel: 'SYM', sublabel: '20mg', totalMg: 20, color: '#d4ad68', retired: true,
             phases: [{ offsetHours: 0, mg: 10, durationHours: 4, ka: 2.0 },
                      { offsetHours: 4, mg: 10, durationHours: 4, ka: 0.7 }] },
 };
@@ -347,6 +368,26 @@ function phaseConc(mg, tH, ka) {
   return Math.max(0, mg * NORM * (ka / (ka - KE)) * (Math.exp(-KE * tH) - Math.exp(-ka * tH)));
 }
 
+// Zero-order input: `mg` released at a constant rate over [0, windowH] hours after the phase
+// start, each slice absorbed first-order at `ka`. This is phaseConc integrated over the
+// window; I(c) = ∫ e^(-c(tH-τ)) dτ over τ in [0, min(tH, windowH)].
+function zeroOrderConc(mg, tH, windowH, ka) {
+  if (tH <= 0) return 0;
+  const u = Math.min(tH, windowH);
+  if (Math.abs(ka - KE) < 0.001) {
+    const s1 = tH - u, s2 = tH;
+    return Math.max(0, mg * NORM / windowH *
+      ((s1 + 1 / KE) * Math.exp(-KE * s1) - (s2 + 1 / KE) * Math.exp(-KE * s2)));
+  }
+  const I = c => (Math.exp(-c * (tH - u)) - Math.exp(-c * tH)) / c;
+  return Math.max(0, mg * NORM / windowH * (ka / (ka - KE)) * (I(KE) - I(ka)));
+}
+
+// Every concentration path goes through this: bolus phases vs zero-order release windows.
+function phaseConcFor(ph, tH) {
+  return ph.windowHours ? zeroOrderConc(ph.mg, tH, ph.windowHours, ph.ka) : phaseConc(ph.mg, tH, ph.ka);
+}
+
 const hasFedToggle = pill => !!MEDS[pill.type]?.fastedPhases;
 
 function phasesFor(pill) {
@@ -358,7 +399,7 @@ function concAtTime(pills, ts) {
   let total = 0;
   for (const p of pills)
     for (const ph of phasesFor(p))
-      total += phaseConc(ph.mg, (ts - (p.takenAt + ph.offsetHours * 3600000)) / 3600000, ph.ka);
+      total += phaseConcFor(ph, (ts - (p.takenAt + ph.offsetHours * 3600000)) / 3600000);
   return total;
 }
 
@@ -374,7 +415,7 @@ function buildCurve(pills, wStart, wEnd) {
     for (const p of pills) {
       let pt = 0;
       for (const ph of phasesFor(p))
-        pt += phaseConc(ph.mg, (ts - (p.takenAt + ph.offsetHours * 3600000)) / 3600000, ph.ka);
+        pt += phaseConcFor(ph, (ts - (p.takenAt + ph.offsetHours * 3600000)) / 3600000);
       perPill[p.id] = Math.round(pt * 10) / 10;
       total += pt;
     }
@@ -815,9 +856,11 @@ function render() {
   // Dose buttons (static, only build once)
   const dg = document.getElementById('dose-grid');
   if (!dg.children.length) {
-    Object.entries(MEDS).forEach(([type, def]) => {
+    const active = Object.entries(MEDS).filter(([, def]) => !def.retired);
+    active.forEach(([type, def], i) => {
       const btn = document.createElement('button');
-      btn.className = 'dose-btn';
+      // Odd count: the first (main) dose spans the full row instead of stranding the last one
+      btn.className = i === 0 && active.length % 2 ? 'dose-btn dose-btn--wide' : 'dose-btn';
       btn.innerHTML = `<span class="dose-btn-name">${def.label}</span><span class="dose-btn-sub">${def.sublabel}</span>`;
       btn.setAttribute('aria-label', `Log ${def.label} ${def.totalMg} milligrams`);
       btn.onclick = () => logPill(type);
@@ -923,7 +966,7 @@ function pillCardBodyHTML(pill, now) {
     return `
       <div class="phase-row">
         <div class="phase-top">
-          <span class="phase-mg" style="color:${color}">${ph.mg} mg${tag}</span>
+          <span class="phase-mg" style="color:${color}">${Math.round(ph.mg)} mg${tag}</span>
           <span class="phase-time">${time}</span>
         </div>
         <div class="track"><div class="fill-bar" style="transform:scaleX(${((100-pct)/100).toFixed(4)});background:${fillBg}"></div></div>
