@@ -1,1 +1,8 @@
 .DS_Store
+
+# Session files (per ~/Claude/code conventions) — live only at the main repo path
+HANDOFF.md
+NOTES.md
+
+# Claude Design handoff package — local only; this repo is public and served by GitHub Pages
+design-explorations/

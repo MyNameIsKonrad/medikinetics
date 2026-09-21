@@ -20,7 +20,9 @@ jobs:
         id: ver
         run: |
           NEW_DATE=$(echo "${{ github.event.head_commit.timestamp }}" | sed 's/T.*//' | tr -d '-')
-          NEW_VER="${NEW_DATE}.0001"
+          # Suffix is the workflow run number, so two merges on the same day still get distinct
+          # versions (a fixed .0001 made the second one a no-op: no SW update, no banner).
+          NEW_VER="${NEW_DATE}.$(printf '%04d' "${{ github.run_number }}")"
           echo "new_ver=${NEW_VER}" >> "$GITHUB_OUTPUT"
           echo "new_full=medikinetics-${NEW_VER}" >> "$GITHUB_OUTPUT"
 

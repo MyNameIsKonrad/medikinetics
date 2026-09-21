@@ -1,94 +1,46 @@
 # Medikinetics — Project Context
 
-This file is the source of truth for all AI contributors. Read it fully before starting any work.
+This file is the source of truth for all AI contributors. Claude reads it through `CLAUDE.md`; Codex reads it directly. Read it fully before starting any work, then read `ARCHITECTURE.md` (how the app works, its history, and the Decision Log) before changing anything it covers.
 
 ## What this is
-A single-file PWA (`index.html` + `sw.js`) for tracking methylphenidate pharmacokinetics.
-One-compartment oral absorption model (Bateman equation). No build step, no framework.
-Deployed on GitHub Pages; test target is Safari on iPhone.
+A personal PWA for tracking methylphenidate pharmacokinetics. All app logic lives in `index.html`; `sw.js` is the service worker; `manifest.webmanifest`, `fonts/` and `icons/` are static assets. One-compartment oral absorption model (Bateman equation). No build step, no framework, no test suite.
+Deployed on GitHub Pages from `main` (the repo is public); test target is Safari on iPhone, installed to the home screen.
+Run locally with `python3 -m http.server 8642` from the repo root (`.claude/launch.json` has this config). The service worker needs http(s), not `file://`.
 
-## Current state
-Check `git log` for the latest. Phases completed so far:
-- Phases 1–5: bug fixes, smarter graph window, crosshair dots, unified scrub/time chip, PK-threshold pill visibility, clearing cards
-- Phase 6: graph window anchored to today's midnight; "taken today" = calendar day
-- Phase 7: README cleanup; "in system" label → "mg eq"
-- Phase 8: dose simulation / preview (ephemeral, never persisted)
-- Phase 9: isRising uses PK slope; clearing bar removed; CLAUDE.md added
-- Phase 10: Bateman equal-rate limit fix (PR #19); fasted CR model (single phase 20mg ka=1.0, default); per-dose fed/fasted toggle chip on pill cards; GitHub Issues workflow established
-- UX pass (PRs #23–#29): design tokens, Space Grotesk + DM Mono typography, interactive affordances, scale-transform press feedback (JS touchstart handler for iOS), undo toast drain bar, fed/fasted chip → toggle switch (direct DOM update in toggleFed for CSS transition), silent debounce → 400ms `.just-fired` disable, CR orange muted (#f5a050 → #b08860), double-tap zoom prevention
-- Color clarification (PRs #33–#34): dose button borders → neutral --muted; fed toggle → --green; CR recolored to lavender (#9d7fd4); button sublabels simplified to "5mg" / "10mg" / "20mg"; dose buttons neutral (no type color — color lives on graph + cards only)
-- Project hygiene (PR #37): PR template, issue templates, workflow rules, Decision Log, AGENTS.md as universal source of truth
-- Data safety + identity: dose history kept forever (48h storage cutoff removed), JSON export via share sheet, app icon (M-shaped double-dose curve) + web manifest, resize/rotation redraw, version-label undim
-- Symkinet MR 20mg: separate `SYMR20` medication type; 10mg immediate + 10mg at +4h; no food toggle; four dose buttons use a 2×2 grid
+## Medications modelled
+| Button | Drug | Dose | Phases |
+|-------|------|------|--------|
+| IR · 5mg | Methylphenidate IR | 5mg | Single phase, ka=2.0 |
+| IR · 10mg | Methylphenidate IR | 10mg | Single phase, ka=2.0 |
+| CR · 20mg | Methylphenidate CR | 20mg | **Fasted (default):** 20mg at 0h (ka=1.0). **Fed:** 10mg at 0h (ka=2.0) + 10mg at +4h (ka=0.7) |
+| Symkinet MR · 20mg | Methylphenidate MR | 20mg | 10mg at 0h (ka=2.0) + 10mg at +4h (ka=0.7); no food-specific mode |
 
-## Key architectural decisions
-- Single-file: all app logic lives in `index.html`. Keep it that way.
-- PK model: Bateman equation, KE=0.347, KA=2.0 (IR), KA=0.7 (CR fed delayed phase), KA=1.0 (CR fasted — judgment call, single phase)
-- CR pills store `fed: boolean` (default false). `phasesFor(pill)` selects `MEDS.CR.fastedPhases` or `MEDS.CR.phases` accordingly. All phase iteration must go through `phasesFor()`.
-- Simulation is ephemeral (`simulatedPills` array, never saved) — not "scheduled doses"
-- Dose history is kept forever in `medikinetics-v1` — rendering filters to 24h (`last24h()`), storage never prunes. `exportData()` shares/downloads the full history as JSON
-- Graph window left edge anchors to today's earliest dose (only doses since midnight count, with a 45-min lead); PK curve uses 24h rolling filter
-- "taken today" stat uses `startOfLocalDay()`; PK curve uses rolling 24h
-- `html, body` has `touch-action: manipulation` — blocks iOS double-tap zoom globally without disabling pinch zoom
-- `.pill-card` carries `data-id="${pill.id}"`. `toggleFed()` updates toggle DOM directly (class toggles on `.fed-track` and `.fed-lbl` only) then calls `renderChart()` + stats inline — does NOT call `render()`, so the `.2s` CSS slide transition plays on the thumb
-- Dose button debounce removed. After a real log, all `.dose-btn` get `disabled` + `.just-fired` (opacity .35) for 400ms. The `touchstart` handler skips `disabled` elements — feedback and action stay in sync
-- `--cr: #9d7fd4` (lavender/violet); `--clearing: #614f8a`. `MEDS.CR.color` must match `--cr`
-- `--sym: #d4ad68` (muted saffron). `MEDS.SYMR20.color` must match `--sym`
+Shared constants: `KE=0.347` for every med; `NORM` makes "mg eq" IR-peak-equivalent (see `ARCHITECTURE.md` → PK model).
+
+## Invariants and conventions
+- All app logic and styles stay in `index.html`; only `sw.js`, the manifest, `fonts/` and `icons/` ship alongside (Decision #1).
+- `MEDS` keys are storage keys. `loadPills` drops any stored dose whose `type` is not a `MEDS` key, and the next save makes the loss permanent. Never remove or rename a key. (verified: `loadPills`, 2026-09-22)
+- Today every `MEDS` entry gets a dose button, in declaration order. To retire a med, hide its button and keep its key. (verified: dose-grid build in `render()`, 2026-09-22)
+- All phase iteration goes through `phasesFor(pill)`. CR pills store `fed: boolean` (default false).
+- Med colors live in `MEDS.*.color`, and `MEDS.IR.color` is also the total-curve color. The `:root` tokens `--cr: #9d7fd4` and `--sym: #d4ad68` mirror `MEDS.CR.color` / `MEDS.SYMR20.color` for reference (no rule reads them) — keep them matching.
+- `toggleFed()` never calls `render()` — it would kill the toggle's slide transition (Decision #3).
+- Named constants stay single-source: `CLEARING_THRESHOLD`, `RISING_LOOKAHEAD_MS`, `UNDO_DURATION_MS`, `KE`/`KA_REF`/`NORM`.
+- Previews (`simulatedPills`) are ephemeral and never saved. Dose history is kept forever; never prune `medikinetics-v1`.
+- `VERSION` in `sw.js` and `#version-label` in `index.html` are stamped by CI on every push to `main`. Never hand-edit them.
+- The repo is public: no personal health data beyond the meds the app models.
 
 ## Workflow — follow exactly
-1. Read `git log` and recent merged PRs to understand current state before starting
+1. Read `git log`, recent merged PRs and `ARCHITECTURE.md` to understand current state before starting
 2. Create a dedicated branch for each feature or fix — use `claude/<slug>` for Claude sessions, `codex/<slug>` for Codex sessions
 3. Open a PR — do not merge yourself, wait for user approval
-4. Never push directly to main
+4. Never push directly to main. The only exception is the CI version-stamp bot, which commits to `main` after every merge — pull before branching.
 5. Never infer upcoming work from `README.md` — the README describes what is built, not what comes next. Ask the user what to do next.
-6. Use conventional commit prefixes on every commit: `feat:` (new capability), `fix:` (bug), `docs:` (README/AGENTS.md only), `chore:` (refactor, rename, housekeeping).
-7. Before opening a PR: check whether README needs updating (any user-visible behaviour changed?); check whether a new architectural judgment call was made (if yes, add a Decision Log entry to AGENTS.md); check open issues and link the relevant one in the PR body.
-8. Fill the PR template body explicitly — no placeholder text. The `Closes #` line must contain an issue number or be removed if no issue exists.
+6. Use conventional commit prefixes on every commit: `feat:` (new capability), `fix:` (bug), `docs:` (README/AGENTS.md/ARCHITECTURE.md only), `chore:` (refactor, rename, housekeeping).
+7. Before opening a PR: check whether README needs updating (any user-visible behavior changed?); check whether a new architectural judgment call was made (if yes, add a Decision Log row to `ARCHITECTURE.md`, and update its sections if the architecture changed); check open issues and link the relevant one in the PR body.
+8. Write the PR body explicitly — what changed, why, and how it was tested (on iPhone Safari where it matters). No placeholder text. Include a `Closes #N` line only when an issue exists.
 
 ## Multi-agent rules
 This project accepts contributions from multiple AI agents (Claude: `claude/<slug>` branches, Codex: `codex/<slug>` branches). Rules for all AI contributors:
-- All judgment calls go in the Decision Log in this file (`AGENTS.md`), regardless of which agent made the call
+- All judgment calls go in the Decision Log in `ARCHITECTURE.md`, regardless of which agent made the call
 - Human is the gate for all PR merges — do not approve or merge another agent's PR
 - Never infer what to work on next — ask the user
-
-## Medications modelled
-| Label | Drug | Dose | Phases |
-|-------|------|------|--------|
-| IR ½ | Methylphenidate IR | 5mg | Single phase, ka=2.0 |
-| IR | Methylphenidate IR | 10mg | Single phase, ka=2.0 |
-| CR | Methylphenidate CR | 20mg | **Fasted (default):** 20mg at 0h (ka=1.0). **Fed:** 10mg at 0h (ka=2.0) + 10mg at +4h (ka=0.7) |
-| Symkinet MR | Methylphenidate MR | 20mg | 10mg at 0h (ka=2.0) + 10mg at +4h (ka=0.7); no food-specific mode |
-
-## Decision Log
-
-Judgment calls made during development. Add an entry whenever a non-obvious choice is made so future sessions do not re-litigate it.
-
-| # | Decision | Rationale | PR / phase |
-|---|----------|-----------|------------|
-| 1 | Single-file architecture (`index.html` only) | Rejected frameworks and build tools. Zero build step; single file is auditable with no dependency surface. | Phase 1 |
-| 2 | CR fasted ka=1.0 | Slower than pure IR (2.0) to reflect residual bead-matrix retardation; faster than fed delayed phase (0.7). Consistent with Haessler et al. 2008 "steady absorption / single Tmax" fasted profile. Population-average estimate, not a measured value. | #21 |
-| 3 | `toggleFed()` direct DOM update, does not call `render()` | `render()` re-creates the pill card and kills the CSS `.2s` slide transition on the toggle thumb. Direct class toggles on `.fed-track`/`.fed-lbl`, then `renderChart()` + stats inline. | #27 |
-| 4 | Graph window left edge anchors to midnight | Rolling window scrolls during the day and makes morning doses hard to read visually. Midnight anchor matches daily medication rhythm. | Phase 6 |
-| 5 | "taken today" stat uses calendar day; PK curve uses rolling 24h | Two different questions: what have I taken since waking (calendar) vs current plasma estimate (rolling decay). Conflating them would make one of the two wrong. | Phase 6 |
-| 6 | CR color `--cr: #9d7fd4` (lavender/violet) | Earlier warm orange (`#f5a050`, then `#b08860`) was too close to IR warm-brown at various screen brightness levels. Lavender gives clear hue separation from IR blue (`#5bb8f5`) and fed-toggle green (`--green`). `MEDS.CR.color` must always match `--cr`. | #33–34 |
-| 7 | Dose buttons neutral (`--muted` border), no type color | Color lives on the graph and pill cards (output). Buttons are input; type-coloring them created visual double-encoding and made interaction/state colors (pressed, disabled) ambiguous. | #33–36 |
-| 8 | `touch-action: manipulation` on `html, body` | Blocks iOS double-tap zoom globally without disabling pinch zoom or accessibility scaling. Alternative (`user-scalable=no` in viewport meta) disables all scaling. | #29 |
-| 9 | `AGENTS.md` as universal source of truth; `CLAUDE.md` as thin pointer | AGENTS.md is the Linux Foundation AAIF universal standard (Dec 2025), backed by Anthropic, OpenAI, Google, Microsoft, and all major AI coding tools. All shared context lives here; CLAUDE.md defers to this file so any AI contributor reads the same authoritative context. | #37 |
-| 10 | `CLEARING_THRESHOLD = 0.1` — 10% of totalMg is the "cleared" criterion | Pills remain visible and show a "clearing" state until plasma concentration drops below 10% of the total dose. 10% is a judgment call balancing meaningful residual effect vs. excessive tail visibility. Used in `pillIsVisible` and `pillCardBodyHTML`; must be kept as a single named constant so both sites stay in sync. | #40 |
-| 11 | `RISING_LOOKAHEAD_MS = 5 * 60000` — 5-minute forward window for rising classification | The "↑ rising" label compares concentration now vs. 5 minutes ahead. 5 minutes is a judgment call: short enough to respond quickly after a dose, long enough to avoid toggling on noise near the peak plateau. Used in `render`, `toggleFed`, and `logRowHTML`; must be kept as a single named constant. | #40 |
-| 12 | `hasFedToggle` data-driven from `MEDS[type].fastedPhases`, not hardcoded `'CR'` | Adding a new med type with a fasted profile no longer requires a parallel update to `hasFedToggle` or to `phasesFor`. The MEDS table is the single source of truth for which types have a fed mode; the helpers derive from it. | #50 |
-| 13 | `UNDO_DURATION_MS` single source for both `setTimeout` and CSS `@keyframes drain` duration | The toast lifetime previously lived in two places (`animation: drain 8s` in CSS and `setTimeout(..., 8000)` in JS). Drift between them would have made the drain bar end visibly before/after the toast itself. JS constant feeds CSS via `style.setProperty('--undo-duration', ...)` at init. | #50 |
-| 14 | Press-feedback timing stored in a `WeakMap`, not on the DOM element | `el._pressAt = Date.now()` pollutes the element's own-property namespace and ties the lifetime of the timing data to the element reference. WeakMap entries are GC'd automatically when the element is removed; the IIFE scope keeps the map private. | #50 |
-| 15 | Animation timing tokens (`--t-base/.15s`, `--t-press/.08s`, `--t-toggle/.2s`, `--t-fill/.3s`) | All 14 `transition:` declarations previously used bare durations. Tokens make the interaction-feel a single-edit-point change. CSS custom properties work inside the `transition` shorthand in Safari 15.4+ (well within the iPhone target). | #51 |
-| 16 | Color tint tokens (`--ir-tint`, `--ir-tint-sim`, `--green-tint`) and `MEDS.IR.color` for SVG curve | Inline `rgba()` literals scattered across CSS rules made tweaking opacity inconsistent. The SVG concentration curve previously had six `"#5bb8f5"` string literals; now derives from the same `MEDS.IR.color` that feeds pill cards and fills. CSS doesn't (yet) allow `var()` inside `rgba()` without `color-mix`, hence the explicit tint tokens. | #51 |
-| 17 | Fed toggle is a `<button role="switch" aria-checked>`, not a `<div onclick>` | Native button semantics give keyboard operability (Space/Enter), correct screen-reader announcement ("fasted/food switch, checked/unchecked"), and `:focus-visible` styling for free. `toggleFed()` syncs `aria-checked` in its direct DOM update path so the attribute stays current without a full re-render (preserves Decision #3's slide-transition). | #52 |
-| 18 | `buildCurve` single-slot memoization keyed on pill fingerprint + window | The 30-second render tick is the hot path; the same call repeats with identical inputs until a real mutation. Single-slot covers 100% of those. The simulation double-call uses different pill arrays and would miss any LRU policy below 4 entries — added complexity buys nothing measurable. Cache invalidates naturally on any pill/window change because the key encodes `id:type:takenAt:fed` for every pill. | #53 |
-| 19 | `closestPoint` binary search replaces `data.reduce` in `showTooltip` | `chartData` is sorted ascending by `ts` (built left-to-right in `buildCurve`). Binary search is ~7 comparisons for the typical 144-point window. The boundary check (`lo > 0 && abs(lo-1) <= abs(lo)`) correctly resolves which of the two adjacent sample points is nearer to the scrub cursor. | #53 |
-| 20 | SW non-navigation fetch caches successful responses on first use, fire-and-forget | Google Fonts CSS and WOFF2 URLs vary by User-Agent; install-time precaching would require either bundling the fonts or carefully replaying the Fonts API request. Cache-on-first-use covers the offline case after the first online visit with zero install-time complexity. `cache.put` is unawaited so the network response isn't delayed by the cache write. | #54 |
-| 21 | Update banner triggers on version-string mismatch in client, not on a separate SW message type | The `VERSION` postMessage already fires on every `activate`. Comparing the previous `#version-label` text to the new version detects updates without adding a new message type. `prev && prev !== new` correctly avoids a false positive on the first activate (when `prev` is the static fallback that matches the new VERSION). | #54 |
-| 22 | Self-hosted WOFF2 fonts; eliminated Google Fonts render-blocking link | The Google Fonts `<link rel="stylesheet">` was render-blocking on iOS Home Screen launches. The SW version bump clears all caches on every push, so fonts had to be re-fetched from `fonts.googleapis.com` after each update (two cross-origin TLS hops). Fix: three WOFF2 latin-subset files in `fonts/`, pre-cached during SW install. Space Grotesk 600 and 700 share one file (variable font). Supersedes the lazy-caching rationale in #20 — User-Agent URL variance no longer applies with self-hosted files. Relative `url('fonts/...')` paths in `@font-face` src (no leading slash) because the app is served at the `/medikinetics/` subpath on GitHub Pages. | ios-pwa-launch-perf |
-| 23 | Dose history kept forever; rendering filters, storage never prunes | The 48h cutoff in `loadPills` silently destroyed medication history. All display/math paths already filter through `last24h()`, so keeping everything changes no behavior. Cost ~60 bytes/dose (~25 KB/year) against a ~5 MB localStorage budget. Corrupt-entry validation now explicit (`typeof takenAt === 'number'`) instead of riding on the cutoff comparison. | data-safety |
-| 24 | Export via Web Share API file with blob-download fallback | Target is iPhone Safari standalone PWA: `navigator.share({files})` opens the share sheet (AirDrop / Save to Files), which is the native path; `<a download>` is unreliable in standalone mode. Exported doses are enriched (mg, ISO time) so the file is readable by humans and future tools without the MEDS table. `AbortError` (user closed the sheet) is not a fallback trigger. | data-safety |
-| 25 | App icon: M-shaped curve — two stacked Bateman humps (IR ka=2.0, doses ~3.2h apart), generated PNGs from `icons/icon.svg` | The icon is the app's own math: two stacked doses draw a natural "M" (Medikinetics) and depict dose stacking, the core reason the app exists. apple-touch-icon must be PNG (iOS ignores SVG), so PNGs are rendered from the SVG source via macOS qlmanage/sips — no build dependency added. SVG doubles as favicon. | data-safety |
-| 26 | Symkinet MR 20mg is a distinct `SYMR20` type with 10mg at 0h (ka=2.0) + 10mg at +4h (ka=0.7), and no food toggle | The official Polish ChPL specifies approximately 50% immediate release, the remainder after about 4h, and no difference in overall bioavailability with or without food. The shared `KE=0.347` matches its reported ~2h half-life. The delayed `ka=0.7` reuses the app's existing biphasic approximation and is not a measured Symkinet constant. Keeping a separate type avoids incorrectly inheriting Medikinet CR's fasted single-phase model. | symkinet-mr-20 |
-| 27 | Symkinet uses muted saffron `--sym: #d4ad68`; four dose buttons use a 2×2 grid | Color remains output-only and separates Symkinet from IR blue, CR lavender, food-state green, and the red now marker. Two columns preserve equal, generous iPhone tap targets instead of leaving a fourth button stranded on a second row. | symkinet-mr-20 |

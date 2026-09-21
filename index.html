@@ -329,6 +329,9 @@ const OFFSETS = [
 const SCRUB_IDX = -1;
 
 // ── PK model ─────────────────────────────────────────────
+// NORM makes "mg eq" IR-peak-equivalent: 1 mg of IR (ka = KA_REF) peaks at exactly 1.0.
+// One shared NORM keeps every med on the same scale; a slower ka correctly peaks lower and
+// later for the same total exposure (AUC). Do not normalize per ka (see ARCHITECTURE.md).
 const KA_REF = 2.0, KE = 0.347;
 const _tm = Math.log(KA_REF / KE) / (KA_REF - KE);
 const _cm = (KA_REF / (KA_REF - KE)) * (Math.exp(-KE * _tm) - Math.exp(-KA_REF * _tm));
