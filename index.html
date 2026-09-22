@@ -357,7 +357,7 @@ const KA_REF = 2.0, KE = 0.347;
 const _tm = Math.log(KA_REF / KE) / (KA_REF - KE);
 const _cm = (KA_REF / (KA_REF - KE)) * (Math.exp(-KE * _tm) - Math.exp(-KA_REF * _tm));
 const NORM = 1 / _cm;
-const CLEARING_THRESHOLD = 0.1; // fraction of totalMg below which a pill is considered cleared
+const CLEARING_THRESHOLD = 0.1; // fraction of a dose's own peak below which it is considered cleared
 const UNDO_DURATION_MS   = 8000; // undo toast lifetime — single source of truth; CSS reads --undo-duration
 
 function phaseConc(mg, tH, ka) {
@@ -402,6 +402,22 @@ function concAtTime(pills, ts) {
       total += phaseConcFor(ph, (ts - (p.takenAt + ph.offsetHours * 3600000)) / 3600000);
   return total;
 }
+
+// A dose's own peak, per type and food state, sampled once. Clearing is measured against it so
+// every med clears at the same relative level: 10% of totalMg is 10% of peak for IR but 25% for
+// Concerta, whose peak in mg eq is far below its mg.
+const _peakCache = new Map();
+function peakFor(pill) {
+  const key = `${pill.type}:${pill.fed ? 1 : 0}`;
+  if (!_peakCache.has(key)) {
+    const probe = { type: pill.type, fed: pill.fed, takenAt: 0 };
+    let peak = 0;
+    for (let ts = 0; ts <= 30 * 3600000; ts += 60000) peak = Math.max(peak, concAtTime([probe], ts));
+    _peakCache.set(key, peak);
+  }
+  return _peakCache.get(key);
+}
+const clearingLevel = pill => peakFor(pill) * CLEARING_THRESHOLD;
 
 let _curveCache = null;
 function buildCurve(pills, wStart, wEnd) {
@@ -486,7 +502,7 @@ function durStr(ms) {
 }
 function pillIsVisible(pill, now) {
   const lp = phasesFor(pill).at(-1);
-  return now < phaseEnd(lp, pill.takenAt) || concAtTime([pill], now) >= MEDS[pill.type].totalMg * CLEARING_THRESHOLD;
+  return now < phaseEnd(lp, pill.takenAt) || concAtTime([pill], now) >= clearingLevel(pill);
 }
 function isAllDone(pill, now) {
   return phasesFor(pill).every(ph => phaseStatus(ph, pill.takenAt, now) === 'done');
@@ -941,7 +957,7 @@ function pillCardBodyHTML(pill, now) {
 
   if (allDone) {
     const conc      = concAtTime([pill], now);
-    const threshold = def.totalMg * CLEARING_THRESHOLD;
+    const threshold = clearingLevel(pill);
     const minsLeft  = conc > threshold ? Math.round((Math.log(conc / threshold) / KE) * 60) : 0;
     const timeStr   = durStr(minsLeft * 60000) ?? '—';
     return `
