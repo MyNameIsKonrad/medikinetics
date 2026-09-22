@@ -4,6 +4,7 @@ This file is the source of truth for all AI contributors. Claude reads it throug
 
 ## What this is
 A personal PWA for tracking methylphenidate pharmacokinetics. All app logic lives in `index.html`; `sw.js` is the service worker; `manifest.webmanifest`, `fonts/` and `icons/` are static assets. One-compartment oral absorption model (Bateman equation). No build step, no framework, no test suite.
+Next to the model's curve, the owner logs how a dose feels (on / fading / off check-ins). A History section shows every stored day and, from the check-ins, how long a dose lasts. Export and import carry both.
 Deployed on GitHub Pages from `main` (the repo is public); test target is Safari on iPhone, installed to the home screen.
 Run locally with `python3 -m http.server 8642` from the repo root (`.claude/launch.json` has this config). The service worker needs http(s), not `file://`.
 
@@ -25,11 +26,13 @@ Shared constants: `KE=0.347` for every med; `NORM` makes "mg eq" IR-peak-equival
 - All app logic and styles stay in `index.html`; only `sw.js`, the manifest, `fonts/` and `icons/` ship alongside (Decision #1).
 - `MEDS` keys are storage keys. `loadPills` drops any stored dose whose `type` is not a `MEDS` key, and the next save makes the loss permanent. Never remove or rename a key. (verified: `loadPills`, 2026-09-22)
 - To retire a med, set `retired: true` and keep its key: it loses its dose button, and its history still loads. Only non-retired entries get buttons, in declaration order.
+- Check-ins live in their own key, `medikinetics-feel-v1`, never in `medikinetics-v1` (`loadPills` would drop them). `FEELS` keys are storage keys the same way: `loadFeels` drops a check-in whose `feel` is not a key, so never remove or rename one.
+- Import only adds. It skips anything already stored, anything with an unknown type or a future time, and never changes or removes a stored dose or check-in.
 - All phase iteration goes through `phasesFor(pill)`, and every concentration goes through `phaseConcFor(ph, tH)` (bolus vs zero-order window). Every phase carries `durationHours` (display, window end, visibility); zero-order phases also carry `windowHours` (PK). CR pills store `fed: boolean` (default false).
 - Med colors live in `MEDS.*.color`, and `MEDS.IR.color` is also the total-curve color. The `:root` tokens `--con: #e58fb8`, `--cr: #9d7fd4` and `--sym: #d4ad68` mirror the Concerta, `MEDS.CR` and `MEDS.SYMR20` colors for reference (no rule reads them) — keep them matching.
 - `toggleFed()` never calls `render()` — it would kill the toggle's slide transition (Decision #3).
 - Named constants stay single-source: `CLEARING_THRESHOLD`, `RISING_LOOKAHEAD_MS`, `UNDO_DURATION_MS`, `KE`/`KA_REF`/`NORM`.
-- No dose is ever in the future: `logPill` clamps `takenAt` to now (Decision #38). Dose history is kept forever; never prune `medikinetics-v1`.
+- No dose or check-in is ever in the future: `selectedTime` clamps both to now (Decision #38). History is kept forever; never prune `medikinetics-v1` or `medikinetics-feel-v1`.
 - `VERSION` in `sw.js` and `#version-label` in `index.html` are stamped by CI on every push to `main`. Never hand-edit them.
 - The repo is public: no personal health data beyond the meds the app models.
 
