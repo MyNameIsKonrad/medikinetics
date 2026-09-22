@@ -539,8 +539,10 @@ function timestampForTimeInput(val) {
   const [h, m] = val.split(':').map(Number);
   const d = new Date();
   d.setHours(h, m, 0, 0);
-  // Manual future times are almost always missed past doses; chart scrub keeps true future timestamps.
-  return d.getTime() > Date.now() ? d.getTime() - 86400000 : d.getTime();
+  // Manual future times are almost always missed past doses. Step back a calendar day, not 24 h,
+  // so the wall-clock time survives a daylight-saving change overnight.
+  if (d.getTime() > Date.now()) { d.setDate(d.getDate() - 1); d.setHours(h, m, 0, 0); }
+  return d.getTime();
 }
 const phaseStart = (ph, t) => t + ph.offsetHours * 3600000;
 const phaseEnd   = (ph, t) => phaseStart(ph, t) + ph.durationHours * 3600000;
@@ -789,37 +791,36 @@ async function exportData() {
 function importData(data) {
   if (!Array.isArray(data?.doses)) { alert('That file is not a Medikinetics export.'); return; }
   const now = Date.now();
-  const haveDose = new Set(pills.map(p => `${p.type}|${p.takenAt}`));
+  // Exports carry no ids, so records match by content. Repeats are counted, not collapsed: two
+  // identical doses in the file against one stored adds one, and a second import adds nothing.
+  const tally = (list, key) => list.reduce((m, x) => m.set(key(x), (m.get(key(x)) ?? 0) + 1), new Map());
+  const unmatched = (have, k) => { if (have.get(k) > 0) { have.set(k, have.get(k) - 1); return false; } return true; };
+  // New ids start at the record's time and step past any id already taken
+  const freeId = (ids, start) => { let id = start; while (ids.has(id)) id++; ids.add(id); return id; };
+
+  const haveDose = tally(pills, p => `${p.type}|${p.takenAt}`);
   const ids = new Set(pills.map(p => p.id));
   const newDoses = [];
   for (const d of data.doses) {
     if (!d || typeof d.type !== 'string' || !Object.hasOwn(MEDS, d.type)) continue;
     if (typeof d.takenAt !== 'number' || !(d.takenAt > 0) || d.takenAt > now) continue;
-    const k = `${d.type}|${d.takenAt}`;
-    if (haveDose.has(k)) continue;
-    haveDose.add(k);
-    let id = d.takenAt; // ids must be unique; exports carry none, so take the dose time and step past collisions
-    while (ids.has(id)) id++;
-    ids.add(id);
-    newDoses.push({ id, type: d.type, takenAt: d.takenAt, ...(hasFedToggle(d) ? { fed: d.fed === true } : {}) });
+    if (!unmatched(haveDose, `${d.type}|${d.takenAt}`)) continue;
+    newDoses.push({ id: freeId(ids, d.takenAt), type: d.type, takenAt: d.takenAt, ...(hasFedToggle(d) ? { fed: d.fed === true } : {}) });
   }
-  const haveFeel = new Set(feels.map(f => `${f.feel}|${f.at}`));
+  const haveFeel = tally(feels, f => `${f.feel}|${f.at}`);
   const feelIds = new Set(feels.map(f => f.id));
   const newFeels = [];
   for (const c of Array.isArray(data.checkins) ? data.checkins : []) {
     if (!c || typeof c.feel !== 'string' || !Object.hasOwn(FEELS, c.feel)) continue;
     if (typeof c.at !== 'number' || !(c.at > 0) || c.at > now) continue;
-    const k = `${c.feel}|${c.at}`;
-    if (haveFeel.has(k)) continue;
-    haveFeel.add(k);
-    let id = c.at;
-    while (feelIds.has(id)) id++;
-    feelIds.add(id);
-    newFeels.push({ id, at: c.at, feel: c.feel });
+    if (!unmatched(haveFeel, `${c.feel}|${c.at}`)) continue;
+    newFeels.push({ id: freeId(feelIds, c.at), at: c.at, feel: c.feel });
   }
   if (!newDoses.length && !newFeels.length) { alert('Nothing new in this file: everything in it is already here.'); return; }
   const count = (n, one) => `${n} ${one}${n === 1 ? '' : 's'}`;
   if (!confirm(`Add ${count(newDoses.length, 'dose')} and ${count(newFeels.length, 'check-in')} from this file? Nothing already here changes.`)) return;
+  // A pending undo could re-add a record this import has just brought back, so it goes
+  if (undoItem) { clearTimeout(undoTimer); undoItem = null; hideUndo(); }
   pills = [...pills, ...newDoses].sort((a, b) => b.takenAt - a.takenAt);
   feels = [...feels, ...newFeels].sort((a, b) => b.at - a.at);
   savePills();
@@ -1277,16 +1278,26 @@ function histStripSVG(sod, curve, doses, dayFeels, max, W) {
   const eod = addDays(sod, 1);
   const base = HIST_H - 1;
   const r1 = n => Math.round(n * 10) / 10;
-  const xS = ts => r1((ts - sod) / (eod - sod) * W);
+  // x is local clock time, so every strip matches the 00–24 axis, 23- and 25-hour DST days included
+  const clockMin = ts => ts >= eod ? 1440 : (d => d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60)(new Date(ts));
+  const xS = ts => r1(clockMin(ts) / 1440 * W);
   const yS = v  => r1(base - (v / max) * (HIST_H - 8));
   const grid = [6, 12, 18].map(h => {
-    const x = xS(sod + h * 3600000);
+    const x = r1(h / 24 * W);
     return `<line x1="${x}" y1="0" x2="${x}" y2="${base}" style="stroke:var(--surface)" stroke-width="1"/>`;
   }).join('');
   let shape = '';
   if (curve) {
-    const pts = curve.pts.map(p => `${xS(p.ts)},${yS(p.v)}`);
-    shape = `<polygon points="${xS(sod)},${base} ${pts.join(' ')} ${xS(eod)},${base}" fill="${MEDS.IR.color}" fill-opacity=".1"/>` +
+    // The clock repeats an hour when DST ends; its second pass is skipped so the line never runs backward
+    let last = -1;
+    const pts = [];
+    for (const p of curve.pts) {
+      const m = clockMin(p.ts);
+      if (m <= last) continue;
+      last = m;
+      pts.push(`${r1(m / 1440 * W)},${yS(p.v)}`);
+    }
+    shape = `<polygon points="0,${base} ${pts.join(' ')} ${W},${base}" fill="${MEDS.IR.color}" fill-opacity=".1"/>` +
       `<polyline points="${pts.join(' ')}" fill="none" stroke="${MEDS.IR.color}" stroke-width="1.5" stroke-linejoin="round"/>`;
   }
   const ticks = doses.map(p =>
@@ -1329,7 +1340,7 @@ function lastsSummaryHTML(dosesByDay) {
   const first = new Map(); // dose day → { feel: ms after dose } for the first check-in of each kind
   for (const f of [...feels].sort((a, b) => a.at - b.at)) {
     const d = doseBefore(f.at);
-    if (!d) continue;
+    if (!d || MEDS[d.type].retired) continue; // a check-in after a retired dose is about that dose
     const rec = first.get(dayOf(d.takenAt)) ?? {};
     if (rec[f.feel] == null) rec[f.feel] = f.at - d.takenAt;
     first.set(dayOf(d.takenAt), rec);
