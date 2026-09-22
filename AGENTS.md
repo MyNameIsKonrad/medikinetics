@@ -29,7 +29,7 @@ Shared constants: `KE=0.347` for every med; `NORM` makes "mg eq" IR-peak-equival
 - Med colors live in `MEDS.*.color`, and `MEDS.IR.color` is also the total-curve color. The `:root` tokens `--con: #e58fb8`, `--cr: #9d7fd4` and `--sym: #d4ad68` mirror the Concerta, `MEDS.CR` and `MEDS.SYMR20` colors for reference (no rule reads them) — keep them matching.
 - `toggleFed()` never calls `render()` — it would kill the toggle's slide transition (Decision #3).
 - Named constants stay single-source: `CLEARING_THRESHOLD`, `RISING_LOOKAHEAD_MS`, `UNDO_DURATION_MS`, `KE`/`KA_REF`/`NORM`.
-- Previews (`simulatedPills`) are ephemeral and never saved. Dose history is kept forever; never prune `medikinetics-v1`.
+- No dose is ever in the future: `logPill` clamps `takenAt` to now (Decision #38). Dose history is kept forever; never prune `medikinetics-v1`.
 - `VERSION` in `sw.js` and `#version-label` in `index.html` are stamped by CI on every push to `main`. Never hand-edit them.
 - The repo is public: no personal health data beyond the meds the app models.
 
