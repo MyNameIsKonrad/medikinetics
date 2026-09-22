@@ -63,7 +63,6 @@
   --safe-bot: env(safe-area-inset-bottom, 0px);
   --t-base:   .15s; --t-press: .08s; --t-toggle: .2s; --t-fill: .3s;
   --ir-tint:     rgba(91,184,245,.12);
-  --ir-tint-sim: rgba(91,184,245,.2);
   --green-tint:  rgba(78,203,141,.18);
 }
 html, body { height: 100%; background: var(--bg); color: var(--text);
@@ -195,10 +194,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; letter-spacing: .06em;
   transition: transform var(--t-base) ease-out; }
 #undo-btn.pressing, #undo-btn:active { transform: scale(0.88); transition: transform var(--t-press) ease-in; }
-/* Simulation card */
-.pill-card--sim { border-color: var(--ir-tint-sim); border-style: dashed; opacity: .8; }
-.sim-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim);
-  text-transform: uppercase; letter-spacing: .06em; margin-top: 6px; }
 /* Data footer */
 .data-footer { display: flex; justify-content: space-between; align-items: center;
   margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); }
@@ -523,7 +518,6 @@ function updateStats(today, now) {
 
 // ── State ─────────────────────────────────────────────────
 let pills          = [];
-let simulatedPills = []; // ephemeral — never saved, cleared on real dose or preset chip
 let offsetIdx = OFFSETS.length - 1; // default: 'now'
 let scrubTime = null; // { ts, label } — set by chart scrub or manual entry
 let _timeInputActive = false; // true while user is inside the native time picker
@@ -560,19 +554,12 @@ function logPill(type) {
     ? (scrubTime?.ts ?? now)
     : now - OFFSETS[offsetIdx].ms;
 
-  if (rawAt > now) {
-    // Future time → preview only, not persisted
-    simulatedPills = [{ id: now, type, takenAt: rawAt, sim: true, ...(hasFedToggle({ type }) ? { fed: false } : {}) }];
-    render();
-    return;
-  }
-
   document.querySelectorAll('.dose-btn').forEach(b => {
     b.disabled = true;
     b.classList.add('just-fired');
     setTimeout(() => { b.disabled = false; b.classList.remove('just-fired'); }, 400);
   });
-  simulatedPills = [];
+  // No dose is ever in the future: typed times resolve to the past and scrubs fill only past times
   pills = [{ id: now, type, takenAt: Math.min(now, rawAt), ...(hasFedToggle({ type }) ? { fed: false } : {}) }, ...pills];
   savePills();
   offsetIdx = OFFSETS.length - 1;
@@ -600,12 +587,7 @@ function toggleFed(id) {
 
   const today = last24h(now);
   updateStats(today, now);
-  renderChart(today, simulatedPills, now);
-}
-
-function clearSim() {
-  simulatedPills = [];
-  render();
+  renderChart(today, now);
 }
 
 function removePill(id) {
@@ -678,16 +660,18 @@ function _showTooltip(clientX, clientY) {
   const cx = XPAD + fracX * CW;
   el.crosshair?.setAttribute('x1', cx);
   el.crosshair?.setAttribute('x2', cx);
-  scrubTime = { ts: closest.ts, label: timeInputValue(closest.ts) };
-  if (el.timeInput) {
-    el.timeInput.value = scrubTime.label;
-    el.timeInput.classList.remove('offset-chip-unset');
+  // Only a past point fills the time chip; scrubbing ahead just reads the projected level
+  if (closest.ts <= Date.now()) {
+    scrubTime = { ts: closest.ts, label: timeInputValue(closest.ts) };
+    if (el.timeInput) {
+      el.timeInput.value = scrubTime.label;
+      el.timeInput.classList.remove('offset-chip-unset');
+    }
   }
   if (el.dotLayer) {
     el.dotLayer.innerHTML = allPills.map(pill => {
       const v = closest[pill.id] || 0;
-      const r = pill.sim ? 2.5 : 3;
-      return `<circle cx="${cx}" cy="${yS(v)}" r="${r}" fill="${MEDS[pill.type].color}" stroke="var(--bg)" stroke-width="1.5" opacity="${pill.sim ? .5 : 1}"/>`;
+      return `<circle cx="${cx}" cy="${yS(v)}" r="3" fill="${MEDS[pill.type].color}" stroke="var(--bg)" stroke-width="1.5"/>`;
     }).join('') +
     `<circle cx="${cx}" cy="${yS(closest.total)}" r="4" fill="none" stroke="${MEDS.IR.color}" stroke-width="1.5"/>`;
   }
@@ -739,7 +723,7 @@ function toPolygon(pts, baseY) {
   return [`${pts[0].x},${baseY}`, ...pts.map(p => `${p.x},${p.y}`), `${pts.at(-1).x},${baseY}`].join(' ');
 }
 
-function renderChart(today, simulated, now) {
+function renderChart(today, now) {
   const svg    = document.getElementById('chart-svg');
   const W      = svg.clientWidth || 380;
   const CH     = 140; // curve height
@@ -748,7 +732,7 @@ function renderChart(today, simulated, now) {
   const H      = CH + BPAD;
   svg.setAttribute('height', H);
 
-  const allPills = [...today, ...simulated];
+  const allPills = today;
   const win  = getCurveWindow(allPills, now);
   const data = buildCurve(allPills, win.start, win.end);
 
@@ -766,41 +750,15 @@ function renderChart(today, simulated, now) {
   const yTicks = [0, Math.round(maxConc * 0.5), Math.round(maxConc)];
 
   const pillFills = allPills.map(pill => {
-    const color = MEDS[pill.type].color;
     const pts = data.map(d => ({ x: xS(d.ts), y: yS(d[pill.id] || 0) }));
-    const poly = toPolygon(pts, CH);
-    if (pill.sim) {
-      const linePoly = pts.map(p => `${p.x},${p.y}`).join(' ');
-      return `<polygon points="${poly}" fill="${color}" fill-opacity="0.04"/>
-        <polyline points="${linePoly}" fill="none" stroke="${color}" stroke-width="1" stroke-opacity=".35" stroke-dasharray="4,4"/>`;
-    }
-    return `<polygon points="${poly}" fill="${color}" fill-opacity="0.1"/>`;
+    return `<polygon points="${toPolygon(pts, CH)}" fill="${MEDS[pill.type].color}" fill-opacity="0.1"/>`;
   }).join('');
 
-  // Total line — if simulation exists, draw confirmed solid + projected dashed.
-  // The confirmed total is derived by summing per-pill values already in `data`,
-  // avoiding a second `buildCurve` pass over every confirmed pill.
   const totalPts = data.map(d => ({ x: xS(d.ts), y: yS(d.total) }));
-  const polyPts  = toPolygon(totalPts, CH);
   const linePts  = totalPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
-  let totalLinesSVG;
-  if (simulated.length) {
-    const todayIds = today.map(p => p.id);
-    const confPts  = data.map(d => ({
-      x: xS(d.ts),
-      y: yS(todayIds.reduce((s, id) => s + (d[id] || 0), 0)),
-    }));
-    const confPoly = toPolygon(confPts, CH);
-    const confLine = confPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
-    totalLinesSVG = `
-      <polygon points="${confPoly}" fill="url(#tg)"/>
-      <path d="${linePts}" fill="none" stroke="${MEDS.IR.color}" stroke-width="1.5" stroke-opacity=".3" stroke-dasharray="5,4" stroke-linecap="round"/>
-      <path d="${confLine}" fill="none" stroke="${MEDS.IR.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
-  } else {
-    totalLinesSVG = `
-      <polygon points="${polyPts}" fill="url(#tg)"/>
-      <path d="${linePts}" fill="none" stroke="${MEDS.IR.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
-  }
+  const totalLinesSVG = `
+    <polygon points="${toPolygon(totalPts, CH)}" fill="url(#tg)"/>
+    <path d="${linePts}" fill="none" stroke="${MEDS.IR.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
 
   const nowX = Math.max(XPAD, Math.min(W, xS(now)));
 
@@ -812,18 +770,12 @@ function renderChart(today, simulated, now) {
   }
   _lastSvgKey = svgKey;
 
-  // Phase markers — sim get dashed + "sim" label
+  // Dose markers
   const markers = allPills.map(pill => {
     const ts = pill.takenAt;
     if (ts < win.start || ts > win.end) return '';
     const x = xS(ts);
-    const color = MEDS[pill.type].color;
-    if (pill.sim) {
-      const lx = Math.min(x + 3, W - 24);
-      return `<line x1="${x}" y1="0" x2="${x}" y2="${CH}" stroke="${color}" stroke-width="1.5" stroke-opacity=".5" stroke-dasharray="3,3"/>
-        <text x="${lx}" y="22" font-family="'DM Mono',monospace" font-size="8" fill="${color}" fill-opacity=".7">sim</text>`;
-    }
-    return `<line x1="${x}" y1="0" x2="${x}" y2="${CH}" stroke="${color}" stroke-width="1" stroke-opacity=".3" stroke-dasharray="2,4"/>`;
+    return `<line x1="${x}" y1="0" x2="${x}" y2="${CH}" stroke="${MEDS[pill.type].color}" stroke-width="1" stroke-opacity=".3" stroke-dasharray="2,4"/>`;
   }).join('');
 
   svg.innerHTML = `
@@ -867,7 +819,7 @@ function render() {
   const today = last24h(now);
 
   updateStats(today, now);
-  renderChart(today, simulatedPills, now);
+  renderChart(today, now);
 
   // Dose buttons (static, only build once)
   const dg = document.getElementById('dose-grid');
@@ -895,14 +847,13 @@ function render() {
     _chart.el.timeInput = document.getElementById('manual-time-input');
   }
 
-  // In progress — sim cards first, then active confirmed doses
+  // In progress
   const inProgress = today.filter(p => pillIsVisible(p, now));
-  const allCards   = [...simulatedPills, ...inProgress];
   const secP = document.getElementById('section-progress');
   const cc   = document.getElementById('cards-container');
-  if (allCards.length) {
+  if (inProgress.length) {
     secP.style.display = '';
-    cc.innerHTML = allCards.map(p => pillCardHTML(p, now)).join('');
+    cc.innerHTML = inProgress.map(p => pillCardHTML(p, now)).join('');
   } else {
     secP.style.display = 'none';
   }
@@ -931,7 +882,6 @@ function render() {
 function setOffset(i) {
   _timeInputActive = false;
   offsetIdx = i;
-  simulatedPills = [];
   render();
 }
 
@@ -998,22 +948,6 @@ function updatePillCardBody(pill, now) {
 
 function pillCardHTML(pill, now) {
   const def = MEDS[pill.type];
-
-  if (pill.sim) {
-    return `
-    <div class="pill-card pill-card--sim">
-      <div class="card-head">
-        <div class="card-head-left">
-          <span class="card-type" style="color:${def.color}">${def.label}</span>
-          <span class="card-mg">${def.totalMg} mg</span>
-          <span class="card-time">${fmt(pill.takenAt)}</span>
-        </div>
-        <button class="x-btn" onclick="clearSim()" aria-label="Dismiss dose preview">×</button>
-      </div>
-      <div class="sim-label">preview · not logged</div>
-    </div>`;
-  }
-
   return `
     <div class="pill-card" data-id="${pill.id}">
       <div class="card-head">
