@@ -125,6 +125,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .offset-chip-unset { opacity: .75; }
 .exact-time-chip { flex: 1.25; min-width: 0; height: auto; color-scheme: dark; -webkit-appearance: none; appearance: none; }
 .exact-time-chip::-webkit-calendar-picker-indicator { opacity: .65; filter: invert(69%) sepia(20%) saturate(787%) hue-rotate(176deg); }
+#dose-when { color: var(--ir); }
 /* Fed/fasted toggle switch on CR pill cards */
 .pill-card:has(.fed-toggle) .card-head { margin-bottom: 8px; }
 .fed-toggle { display: inline-flex; align-items: center; gap: 8px;
@@ -264,7 +265,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   </div>
 
   <div class="section">
-    <div class="section-label">log dose</div>
+    <div class="section-label">log dose<span id="dose-when"></span></div>
     <div class="dose-grid" id="dose-grid"></div>
     <div class="offset-row" id="offset-row"></div>
   </div>
@@ -667,6 +668,7 @@ function _showTooltip(clientX, clientY) {
       el.timeInput.value = scrubTime.label;
       el.timeInput.classList.remove('offset-chip-unset');
     }
+    updateDoseWhen();
   }
   if (el.dotLayer) {
     el.dotLayer.innerHTML = allPills.map(pill => {
@@ -846,6 +848,7 @@ function render() {
     // Refresh cached ref — element recreated by innerHTML above
     _chart.el.timeInput = document.getElementById('manual-time-input');
   }
+  updateDoseWhen();
 
   // In progress
   const inProgress = today.filter(p => pillIsVisible(p, now));
@@ -879,6 +882,15 @@ function render() {
   }
 }
 
+// While the exact-time chip is selected, the "log dose" label names the day the dose lands on:
+// a typed time later than now means yesterday, which the chip itself cannot show.
+function updateDoseWhen() {
+  const el = document.getElementById('dose-when');
+  if (offsetIdx !== SCRUB_IDX || !scrubTime) { el.textContent = ''; return; }
+  const day = scrubTime.ts < startOfLocalDay() ? 'yesterday' : 'today';
+  el.textContent = ` · ${day} ${fmt(scrubTime.ts)}`;
+}
+
 function setOffset(i) {
   _timeInputActive = false;
   offsetIdx = i;
@@ -898,6 +910,7 @@ function selectExactTimeChip() {
   document.querySelectorAll('#offset-row .offset-chip').forEach(btn => {
     btn.classList.toggle('active', btn.id === 'manual-time-input');
   });
+  updateDoseWhen();
 }
 
 function pillCardBodyHTML(pill, now) {
