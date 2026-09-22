@@ -57,7 +57,7 @@
   --bg: #080d17; --surface: #0f1623; --border: #1a2235;
   --muted: #2d3f57; --dim: #3a5070; --soft: #4a6080;
   --text: #dce8f5; --ir: #5bb8f5; --cr: #9d7fd4; --sym: #d4ad68; --con: #e58fb8; --green: #4ecb8d;
-  --now: #ff6b6b; --clearing: #614f8a; --rising: #94b8d4;
+  --now: #ff6b6b; --clearing: #614f8a; --rising: #94b8d4; --feel: var(--text);
   --toast-text: #8ba3be; --tooltip-bg: #0a1020;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bot: env(safe-area-inset-bottom, 0px);
@@ -126,6 +126,18 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .exact-time-chip { flex: 1.25; min-width: 0; height: auto; color-scheme: dark; -webkit-appearance: none; appearance: none; }
 .exact-time-chip::-webkit-calendar-picker-indicator { opacity: .65; filter: invert(69%) sepia(20%) saturate(787%) hue-rotate(176deg); }
 #dose-when { color: var(--ir); }
+/* Feel check-ins: neutral inputs like the dose buttons (Decision #7), told apart by shape */
+.feel-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.feel-lbl { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim);
+  text-transform: uppercase; letter-spacing: .1em; width: 44px; flex-shrink: 0; }
+.feel-chip { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-family: 'DM Mono', monospace; font-size: 12px; padding: 12px 6px;
+  background: transparent; border: 1px solid var(--muted); border-radius: 12px;
+  color: var(--feel); cursor: pointer; touch-action: manipulation;
+  transition: opacity var(--t-base), transform var(--t-base) ease-out; }
+.feel-chip.pressing, .feel-chip:active { transform: scale(0.92); transition: transform var(--t-press) ease-in; }
+.feel-chip.just-fired { opacity: .35; }
+.feel-icon { flex-shrink: 0; }
 /* Fed/fasted toggle switch on CR pill cards */
 .pill-card:has(.fed-toggle) .card-head { margin-bottom: 8px; }
 .fed-toggle { display: inline-flex; align-items: center; gap: 8px;
@@ -168,6 +180,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .log-mg { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--soft); min-width: 44px; }
 .log-t { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); flex: 1; }
 .log-status { font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.log-feel { display: inline-flex; align-items: center; gap: 6px; min-width: 88px;
+  font-family: 'DM Mono', monospace; font-size: 12px; color: var(--feel); }
 /* Buttons */
 .x-btn { background: none; border: none; color: var(--muted); font-size: 20px;
   line-height: 1; cursor: pointer; padding: 8px; margin: -8px; touch-action: manipulation;
@@ -200,11 +214,39 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); }
 .data-footer span { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted);
   text-transform: uppercase; letter-spacing: .1em; }
-#export-btn { background: none; border: 1px solid var(--border); border-radius: 20px;
+.footer-btns { display: flex; gap: 8px; }
+#export-btn, #import-btn, #history-more { background: none; border: 1px solid var(--border); border-radius: 20px;
   color: var(--dim); font-family: 'DM Mono', monospace; font-size: 11px;
-  padding: 4px 12px; cursor: pointer; touch-action: manipulation;
+  padding: 4px 12px; cursor: pointer; touch-action: manipulation; white-space: nowrap;
   transition: transform var(--t-base) ease-out, color var(--t-base), border-color var(--t-base); }
-#export-btn.pressing, #export-btn:active { transform: scale(0.92); transition: transform var(--t-press) ease-in; }
+#dose-count { line-height: 1.6; }
+#export-btn.pressing, #export-btn:active, #import-btn.pressing, #import-btn:active,
+#history-more.pressing, #history-more:active { transform: scale(0.92); transition: transform var(--t-press) ease-in; }
+/* History */
+.hist-summary { background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 16px; margin-bottom: 16px; }
+.hist-summary .section-label { margin-bottom: 10px; }
+.hist-table { width: 100%; border-collapse: collapse; font-family: 'DM Mono', monospace; font-size: 12px;
+  font-variant-numeric: tabular-nums; }
+.hist-table th { font-size: 10px; font-weight: 400; color: var(--dim); text-transform: uppercase;
+  letter-spacing: .08em; text-align: right; padding-bottom: 6px; }
+.hist-table td { text-align: right; padding: 4px 0; vertical-align: top; }
+.hist-table th:first-child, .hist-table td:first-child { text-align: left; }
+.hist-table .hist-n { display: block; font-size: 10px; color: var(--muted); margin-top: 1px; }
+.hist-axis { display: flex; justify-content: space-between; font-family: 'DM Mono', monospace;
+  font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+.hist-day { padding: 10px 0 12px; border-bottom: 1px solid var(--surface); contain: layout style; }
+.hist-day-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.hist-date { font-size: 13px; font-weight: 700; }
+.hist-total { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--soft); }
+.hist-strip { width: 100%; display: block; }
+.hist-items { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px;
+  font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); }
+.hist-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.hist-item .feel-icon { color: var(--feel); }
+.hist-gap { padding: 10px 0; border-bottom: 1px solid var(--surface);
+  font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+#history-more { display: block; margin: 16px auto 0; }
 /* Update banner */
 #update-banner { position: fixed; top: 0; left: 0; right: 0;
   background: var(--surface); border-bottom: 1px solid var(--border);
@@ -265,8 +307,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   </div>
 
   <div class="section">
-    <div class="section-label">log dose<span id="dose-when"></span></div>
+    <div class="section-label">log<span id="dose-when"></span></div>
     <div class="dose-grid" id="dose-grid"></div>
+    <div class="feel-row" id="feel-row"></div>
     <div class="offset-row" id="offset-row"></div>
   </div>
 
@@ -282,9 +325,21 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 
   <div class="empty" id="empty-state">nothing logged yet</div>
 
-  <div class="data-footer" id="data-footer" style="display:none">
+  <div class="section" id="section-history" style="display:none">
+    <div class="section-label">history</div>
+    <div id="history-summary"></div>
+    <div class="hist-axis" aria-hidden="true"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
+    <div id="history-days"></div>
+    <button id="history-more" onclick="showMoreHistory()">show more days</button>
+  </div>
+
+  <div class="data-footer" id="data-footer">
     <span id="dose-count"></span>
-    <button id="export-btn" onclick="exportData()">export json</button>
+    <div class="footer-btns">
+      <button id="import-btn" onclick="document.getElementById('import-input').click()">import</button>
+      <button id="export-btn" onclick="exportData()">export json</button>
+    </div>
+    <input type="file" id="import-input" accept="application/json,.json" hidden>
   </div>
 </div>
 
@@ -344,6 +399,14 @@ const OFFSETS = [
   { label: 'now',  ms: 0 },
 ];
 const SCRUB_IDX = -1;
+
+// How a dose feels, as the owner logs it. FEELS keys are storage keys like MEDS keys:
+// loadFeels drops a check-in whose `feel` is not a key here, so never remove or rename one.
+const FEELS = {
+  on:     { label: 'on' },
+  fading: { label: 'fading' },
+  off:    { label: 'off' },
+};
 
 // ── PK model ─────────────────────────────────────────────
 // NORM makes "mg eq" IR-peak-equivalent: 1 mg of IR (ka = KA_REF) peaks at exactly 1.0.
@@ -476,8 +539,10 @@ function timestampForTimeInput(val) {
   const [h, m] = val.split(':').map(Number);
   const d = new Date();
   d.setHours(h, m, 0, 0);
-  // Manual future times are almost always missed past doses; chart scrub keeps true future timestamps.
-  return d.getTime() > Date.now() ? d.getTime() - 86400000 : d.getTime();
+  // Manual future times are almost always missed past doses. Step back a calendar day, not 24 h,
+  // so the wall-clock time survives a daylight-saving change overnight.
+  if (d.getTime() > Date.now()) { d.setDate(d.getDate() - 1); d.setHours(h, m, 0, 0); }
+  return d.getTime();
 }
 const phaseStart = (ph, t) => t + ph.offsetHours * 3600000;
 const phaseEnd   = (ph, t) => phaseStart(ph, t) + ph.durationHours * 3600000;
@@ -506,6 +571,24 @@ function isAllDone(pill, now) {
 function last24h(now) {
   return pills.filter(p => p.takenAt > now - 24 * 3600000);
 }
+// A check-in is about the most recent dose at or before it, within 24 h; its "after" time counts from there.
+function doseBefore(ts) {
+  let best = null;
+  for (const p of pills)
+    if (p.takenAt <= ts && p.takenAt > ts - 24 * 3600000 && (!best || p.takenAt > best.takenAt)) best = p;
+  return best;
+}
+const afterDose = f => { const d = doseBefore(f.at); return d ? (durStr(f.at - d.takenAt) ?? '0m') : null; };
+// Check-ins are told apart by shape, not hue (issue #35): filled = on, half = fading, hollow = off.
+// `ink` draws the mark; `paper` fills its hollow part ('none' lets the background through).
+function feelShape(feel, cx, cy, r, ink, paper) {
+  // r + 0.75 so the filled mark is as big as the rings (whose stroke adds 0.75); its stroke is a halo
+  if (feel === 'on') return `<circle cx="${cx}" cy="${cy}" r="${r + 0.75}" style="fill:${ink};stroke:${paper}" stroke-width="1.5"/>`;
+  const ring = `<circle cx="${cx}" cy="${cy}" r="${r}" style="fill:${paper};stroke:${ink}" stroke-width="1.5"/>`;
+  return feel === 'fading' ? ring + `<path d="M${cx},${cy - r}A${r},${r} 0 0 0 ${cx},${cy + r}Z" style="fill:${ink}"/>` : ring;
+}
+const feelIcon = feel =>
+  `<svg class="feel-icon" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">${feelShape(feel, 6, 6, 4.5, 'currentColor', 'none')}</svg>`;
 function updateStats(today, now) {
   const taken  = today.filter(p => p.takenAt >= startOfLocalDay()).reduce((s, p) => s + MEDS[p.type].totalMg, 0);
   const inSys  = concAtTime(today, now);
@@ -519,6 +602,7 @@ function updateStats(today, now) {
 
 // ── State ─────────────────────────────────────────────────
 let pills          = [];
+let feels          = []; // check-ins { id, at, feel }, newest first; stored apart from doses
 let offsetIdx = OFFSETS.length - 1; // default: 'now'
 let scrubTime = null; // { ts, label } — set by chart scrub or manual entry
 let _timeInputActive = false; // true while user is inside the native time picker
@@ -549,22 +633,57 @@ function savePills() {
   catch (e) { console.error('MedKit: save failed', e); }
 }
 
-function logPill(type) {
-  const now = Date.now();
+// Check-ins get their own key: loadPills keeps only MEDS-typed entries, so sharing
+// 'medikinetics-v1' would drop them on the next load and save. Kept forever, like doses.
+const FEEL_STORE = 'medikinetics-feel-v1';
+function loadFeels() {
+  try {
+    const raw = localStorage.getItem(FEEL_STORE);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(f => f && typeof f.at === 'number' && f.at > 0 && typeof f.feel === 'string' && Object.hasOwn(FEELS, f.feel));
+  } catch (e) { console.error('MedKit: feel load failed', e); return []; }
+}
+
+function saveFeels() {
+  try { localStorage.setItem(FEEL_STORE, JSON.stringify(feels)); }
+  catch (e) { console.error('MedKit: feel save failed', e); }
+}
+
+// The when-row (offset chips or the exact-time chip) times the next dose or check-in.
+// Nothing is ever in the future: typed times resolve to the past and scrubs fill only past times.
+function selectedTime(now) {
   const rawAt = offsetIdx === SCRUB_IDX
     ? (scrubTime?.ts ?? now)
     : now - OFFSETS[offsetIdx].ms;
+  return Math.min(now, rawAt);
+}
 
-  document.querySelectorAll('.dose-btn').forEach(b => {
+// After any log: a 400 ms disable guards against double taps, then the when-row resets to 'now'
+function afterLog() {
+  document.querySelectorAll('.dose-btn, .feel-chip').forEach(b => {
     b.disabled = true;
     b.classList.add('just-fired');
     setTimeout(() => { b.disabled = false; b.classList.remove('just-fired'); }, 400);
   });
-  // No dose is ever in the future: typed times resolve to the past and scrubs fill only past times
-  pills = [{ id: now, type, takenAt: Math.min(now, rawAt), ...(hasFedToggle({ type }) ? { fed: false } : {}) }, ...pills];
-  savePills();
   offsetIdx = OFFSETS.length - 1;
   scrubTime = null;
+}
+
+function logPill(type) {
+  const now = Date.now();
+  pills = [{ id: now, type, takenAt: selectedTime(now), ...(hasFedToggle({ type }) ? { fed: false } : {}) }, ...pills];
+  savePills();
+  afterLog();
+  render();
+}
+
+function logFeel(feel) {
+  const now = Date.now();
+  feels = [{ id: now, at: selectedTime(now), feel }, ...feels].sort((a, b) => b.at - a.at);
+  saveFeels();
+  afterLog();
   render();
 }
 
@@ -589,6 +708,7 @@ function toggleFed(id) {
   const today = last24h(now);
   updateStats(today, now);
   renderChart(today, now);
+  renderHistory(); // a separate section, so the card's toggle transition still plays
 }
 
 function removePill(id) {
@@ -596,18 +716,38 @@ function removePill(id) {
   if (!pill) return;
   pills = pills.filter(p => p.id !== id);
   savePills();
-  undoItem = pill;
+  stageUndo({ kind: 'dose', item: pill }, `${MEDS[pill.type].label} ${MEDS[pill.type].totalMg}mg deleted`);
+  render();
+}
+
+function removeFeel(id) {
+  const feel = feels.find(f => f.id === id);
+  if (!feel) return;
+  feels = feels.filter(f => f.id !== id);
+  saveFeels();
+  stageUndo({ kind: 'feel', item: feel }, `"${FEELS[feel.feel].label}" check-in deleted`);
+  render();
+}
+
+// Single-level undo for either record kind; a second delete replaces the pending one
+function stageUndo(entry, msg) {
+  undoItem = entry;
   if (undoTimer) clearTimeout(undoTimer);
   undoTimer = setTimeout(() => { undoItem = null; hideUndo(); }, UNDO_DURATION_MS);
-  showUndo(pill);
-  render();
+  showUndo(msg);
 }
 
 function undoRemove() {
   if (!undoItem) return;
   clearTimeout(undoTimer);
-  pills = [undoItem, ...pills].sort((a, b) => b.takenAt - a.takenAt);
-  savePills();
+  const { kind, item } = undoItem;
+  if (kind === 'feel') {
+    feels = [item, ...feels].sort((a, b) => b.at - a.at);
+    saveFeels();
+  } else {
+    pills = [item, ...pills].sort((a, b) => b.takenAt - a.takenAt);
+    savePills();
+  }
   undoItem = null;
   hideUndo();
   render();
@@ -624,6 +764,12 @@ async function exportData() {
       time: new Date(p.takenAt).toISOString(),
       ...(hasFedToggle(p) ? { fed: !!p.fed } : {}),
     })),
+    // Added in 2.0; `doses` keeps its original shape (Decision #24)
+    checkins: [...feels].sort((a, b) => a.at - b.at).map(f => ({
+      feel: f.feel,
+      at: f.at,
+      time: new Date(f.at).toISOString(),
+    })),
   };
   const name = `medikinetics-${new Date().toISOString().slice(0, 10)}.json`;
   const file = new File([JSON.stringify(payload, null, 2)], name, { type: 'application/json' });
@@ -639,9 +785,61 @@ async function exportData() {
   URL.revokeObjectURL(a.href);
 }
 
-function showUndo(pill) {
-  document.getElementById('undo-msg').textContent =
-    `${MEDS[pill.type].label} ${MEDS[pill.type].totalMg}mg deleted`;
+// Import reads an export file back in. It only ever adds: a dose already here (same type and
+// time) or a check-in already here (same feel and time) is skipped, and so is anything with an
+// unknown type or a time in the future. Nothing stored is changed or removed.
+function importData(data) {
+  if (!Array.isArray(data?.doses)) { alert('That file is not a Medikinetics export.'); return; }
+  const now = Date.now();
+  // Exports carry no ids, so records match by content. Repeats are counted, not collapsed: two
+  // identical doses in the file against one stored adds one, and a second import adds nothing.
+  const tally = (list, key) => list.reduce((m, x) => m.set(key(x), (m.get(key(x)) ?? 0) + 1), new Map());
+  const unmatched = (have, k) => { if (have.get(k) > 0) { have.set(k, have.get(k) - 1); return false; } return true; };
+  // New ids start at the record's time and step past any id already taken
+  const freeId = (ids, start) => { let id = start; while (ids.has(id)) id++; ids.add(id); return id; };
+
+  const haveDose = tally(pills, p => `${p.type}|${p.takenAt}`);
+  const ids = new Set(pills.map(p => p.id));
+  const newDoses = [];
+  for (const d of data.doses) {
+    if (!d || typeof d.type !== 'string' || !Object.hasOwn(MEDS, d.type)) continue;
+    if (typeof d.takenAt !== 'number' || !(d.takenAt > 0) || d.takenAt > now) continue;
+    if (!unmatched(haveDose, `${d.type}|${d.takenAt}`)) continue;
+    newDoses.push({ id: freeId(ids, d.takenAt), type: d.type, takenAt: d.takenAt, ...(hasFedToggle(d) ? { fed: d.fed === true } : {}) });
+  }
+  const haveFeel = tally(feels, f => `${f.feel}|${f.at}`);
+  const feelIds = new Set(feels.map(f => f.id));
+  const newFeels = [];
+  for (const c of Array.isArray(data.checkins) ? data.checkins : []) {
+    if (!c || typeof c.feel !== 'string' || !Object.hasOwn(FEELS, c.feel)) continue;
+    if (typeof c.at !== 'number' || !(c.at > 0) || c.at > now) continue;
+    if (!unmatched(haveFeel, `${c.feel}|${c.at}`)) continue;
+    newFeels.push({ id: freeId(feelIds, c.at), at: c.at, feel: c.feel });
+  }
+  if (!newDoses.length && !newFeels.length) { alert('Nothing new in this file: everything in it is already here.'); return; }
+  const count = (n, one) => `${n} ${one}${n === 1 ? '' : 's'}`;
+  if (!confirm(`Add ${count(newDoses.length, 'dose')} and ${count(newFeels.length, 'check-in')} from this file? Nothing already here changes.`)) return;
+  // A pending undo could re-add a record this import has just brought back, so it goes
+  if (undoItem) { clearTimeout(undoTimer); undoItem = null; hideUndo(); }
+  pills = [...pills, ...newDoses].sort((a, b) => b.takenAt - a.takenAt);
+  feels = [...feels, ...newFeels].sort((a, b) => b.at - a.at);
+  savePills();
+  saveFeels();
+  render();
+}
+
+document.getElementById('import-input').addEventListener('change', async e => {
+  const file = e.target.files?.[0];
+  e.target.value = ''; // so picking the same file again still fires 'change'
+  if (!file) return;
+  let data;
+  try { data = JSON.parse(await file.text()); }
+  catch { alert('That file is not a Medikinetics export.'); return; }
+  importData(data);
+});
+
+function showUndo(msg) {
+  document.getElementById('undo-msg').textContent = msg;
   document.getElementById('undo-toast').classList.add('visible');
 }
 function hideUndo() {
@@ -763,9 +961,10 @@ function renderChart(today, now) {
     <path d="${linePts}" fill="none" stroke="${MEDS.IR.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
 
   const nowX = Math.max(XPAD, Math.min(W, xS(now)));
+  const feelMarks = feels.filter(f => f.at >= win.start && f.at <= win.end);
 
-  // Skip SVG rebuild when nothing has changed (curve cached + same width + now marker same pixel)
-  const svgKey = `${_curveCache.key}|${W}|${Math.round(nowX)}`;
+  // Skip SVG rebuild when nothing has changed (curve cached + same width + now marker same pixel + same check-ins)
+  const svgKey = `${_curveCache.key}|${W}|${Math.round(nowX)}|${feelMarks.map(f => `${f.id}:${f.at}:${f.feel}`).join(',')}`;
   if (svgKey === _lastSvgKey) {
     Object.assign(_chart, { data, win, allPills, CW, XPAD, CH: 140, maxConc });
     return;
@@ -797,6 +996,7 @@ function renderChart(today, now) {
     ${markers}
     <line x1="${nowX}" y1="0" x2="${nowX}" y2="${CH}" style="stroke:var(--now)" stroke-width="1.5" stroke-dasharray="4,3"/>
     <text x="${Math.min(nowX + 4, W - 28)}" y="12" font-family="'DM Mono',monospace" font-size="10" style="fill:var(--now)">now</text>
+    ${feelMarks.map(f => feelShape(f.feel, xS(f.at), yS(concAtTime(allPills, f.at)), 4.5, 'var(--feel)', 'var(--surface)')).join('')}
     ${xTicks.map(ts => {
       const x = xS(ts);
       if (x < XPAD + 10 || x > W - 10) return '';
@@ -838,6 +1038,15 @@ function render() {
     });
   }
 
+  // Feel chips (static, only build once) — timed by the same when-row as the doses
+  const fr = document.getElementById('feel-row');
+  if (!fr.children.length) {
+    fr.innerHTML = `<span class="feel-lbl" aria-hidden="true">feels</span>` +
+      Object.entries(FEELS).map(([key, f]) =>
+        `<button class="feel-chip" onclick="logFeel('${key}')" aria-label="Log how it feels: ${f.label}">${feelIcon(key)}${f.label}</button>`
+      ).join('');
+  }
+
   // Offset chips — skip rebuild while user is in the time picker to avoid destroying focus mid-entry
   if (!_timeInputActive && document.activeElement?.id !== 'manual-time-input') {
     const or = document.getElementById('offset-row');
@@ -861,29 +1070,36 @@ function render() {
     secP.style.display = 'none';
   }
 
-  // Log
+  // Log — doses and check-ins from the last 24 h, newest first
   const secL = document.getElementById('section-log');
   const lc   = document.getElementById('log-container');
-  if (today.length) {
+  const todayFeels = feels.filter(f => f.at > now - 24 * 3600000);
+  if (today.length || todayFeels.length) {
     secL.style.display = '';
-    lc.innerHTML = today.map(p => logRowHTML(p, now)).join('');
+    lc.innerHTML = [
+      ...today.map(p => ({ ts: p.takenAt, html: logRowHTML(p, now) })),
+      ...todayFeels.map(f => ({ ts: f.at, html: feelRowHTML(f) })),
+    ].sort((a, b) => b.ts - a.ts).map(r => r.html).join('');
   } else {
     secL.style.display = 'none';
   }
 
-  document.getElementById('empty-state').style.display = today.length ? 'none' : '';
+  const empty = document.getElementById('empty-state');
+  empty.style.display = today.length || todayFeels.length ? 'none' : '';
+  empty.textContent = pills.length || feels.length ? 'nothing in the last 24h' : 'nothing logged yet';
 
-  // Data footer — full history count (not just 24h)
-  const footer = document.getElementById('data-footer');
-  footer.style.display = pills.length ? '' : 'none';
-  if (pills.length) {
-    document.getElementById('dose-count').textContent =
-      `${pills.length} dose${pills.length === 1 ? '' : 's'} stored`;
-  }
+  renderHistory();
+
+  // Data footer — full history count (not just 24h). Always shown: import is how an empty install gets its history back.
+  const plural = (n, one) => `${n} ${one}${n === 1 ? '' : 's'}`;
+  document.getElementById('dose-count').innerHTML = pills.length || feels.length
+    ? `${plural(pills.length, 'dose')} stored${feels.length ? `<br>${plural(feels.length, 'check-in')}` : ''}`
+    : 'nothing stored';
+  document.getElementById('export-btn').style.display = pills.length || feels.length ? '' : 'none';
 }
 
-// While the exact-time chip is selected, the "log dose" label names the day the dose lands on:
-// a typed time later than now means yesterday, which the chip itself cannot show.
+// While the exact-time chip is selected, the "log" label names the day the dose or check-in lands
+// on: a typed time later than now means yesterday, which the chip itself cannot show.
 function updateDoseWhen() {
   const el = document.getElementById('dose-when');
   if (offsetIdx !== SCRUB_IDX || !scrubTime) { el.textContent = ''; return; }
@@ -1002,9 +1218,211 @@ function logRowHTML(pill, now) {
     </div>`;
 }
 
+function feelRowHTML(f) {
+  const label = FEELS[f.feel].label;
+  const after = afterDose(f);
+  return `
+    <div class="log-row">
+      <span class="log-feel">${feelIcon(f.feel)}${label}</span>
+      <span class="log-t">${fmt(f.at)}</span>
+      <span class="log-status" style="color:var(--dim)">${after ? `${after} after dose` : ''}</span>
+      <button class="x-btn" onclick="removeFeel(${f.id})" aria-label="Remove ${label} check-in">×</button>
+    </div>`;
+}
+
+// ── History ───────────────────────────────────────────────
+// Every stored day, newest first: the model's curve for the day on a shared 00–24 axis and one
+// shared scale (so days compare), the doses, and the check-ins with their time after the dose.
+// Rebuilt only when the data, the day, the width or the days shown change, not on the 30 s tick.
+const HISTORY_FIRST = 7;  // days shown before "show more"
+const HISTORY_STEP  = 30; // days each "show more" adds
+const HIST_H = 36, HIST_SAMPLE_MS = 15 * 60000;
+let _historyDays = HISTORY_FIRST;
+let _historyKey  = null;
+let _dayCurves   = { key: null, byDay: new Map(), max: 5 };
+
+const dayOf   = ts => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const addDays = (ts, n) => { const d = new Date(ts); d.setDate(d.getDate() + n); return d.getTime(); };
+// "Mon 22 Sep" — spelled out here because locale formats differ ("Sept", "pon., 22 wrz")
+const fmtDay  = ts => { const d = new Date(ts);
+  return `${'Sun Mon Tue Wed Thu Fri Sat'.split(' ')[d.getDay()]} ${d.getDate()} ${'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ')[d.getMonth()]}`; };
+
+function pushTo(map, key, item) { (map.get(key) ?? map.set(key, []).get(key)).push(item); }
+
+// Each day's curve includes doses from the 24 h before it, so a late dose's tail carries over.
+// All days are computed (not just those shown) so the shared scale does not jump on "show more".
+function dayCurves(doseKey) {
+  const today = startOfLocalDay();
+  const key = `${today}|${doseKey}`; // the day is in the key so a new day gets its curve at midnight
+  if (_dayCurves.key === key) return _dayCurves;
+  const byDay = new Map();
+  let max = 5;
+  const sorted = [...pills].sort((a, b) => a.takenAt - b.takenAt);
+  for (let sod = sorted.length ? dayOf(sorted[0].takenAt) : today + 1; sod <= today; sod = addDays(sod, 1)) {
+    const eod = addDays(sod, 1);
+    const src = sorted.filter(p => p.takenAt > sod - 86400000 && p.takenAt < eod);
+    if (!src.length) continue;
+    const pts = [];
+    for (let ts = sod; ts <= eod; ts += HIST_SAMPLE_MS) {
+      const v = concAtTime(src, ts);
+      pts.push({ ts, v });
+      if (v > max) max = v;
+    }
+    byDay.set(sod, { pts, src });
+  }
+  _dayCurves = { key, byDay, max };
+  return _dayCurves;
+}
+
+function histStripSVG(sod, curve, doses, dayFeels, max, W) {
+  const eod = addDays(sod, 1);
+  const base = HIST_H - 1;
+  const r1 = n => Math.round(n * 10) / 10;
+  // x is local clock time, so every strip matches the 00–24 axis, 23- and 25-hour DST days included
+  const clockMin = ts => ts >= eod ? 1440 : (d => d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60)(new Date(ts));
+  const xS = ts => r1(clockMin(ts) / 1440 * W);
+  const yS = v  => r1(base - (v / max) * (HIST_H - 8));
+  const grid = [6, 12, 18].map(h => {
+    const x = r1(h / 24 * W);
+    return `<line x1="${x}" y1="0" x2="${x}" y2="${base}" style="stroke:var(--surface)" stroke-width="1"/>`;
+  }).join('');
+  let shape = '';
+  if (curve) {
+    // The clock repeats an hour when DST ends; its second pass is skipped so the line never runs backward
+    let last = -1;
+    const pts = [];
+    for (const p of curve.pts) {
+      const m = clockMin(p.ts);
+      if (m <= last) continue;
+      last = m;
+      pts.push(`${r1(m / 1440 * W)},${yS(p.v)}`);
+    }
+    shape = `<polygon points="0,${base} ${pts.join(' ')} ${W},${base}" fill="${MEDS.IR.color}" fill-opacity=".1"/>` +
+      `<polyline points="${pts.join(' ')}" fill="none" stroke="${MEDS.IR.color}" stroke-width="1.5" stroke-linejoin="round"/>`;
+  }
+  const ticks = doses.map(p =>
+    `<line x1="${xS(p.takenAt)}" y1="${base - 6}" x2="${xS(p.takenAt)}" y2="${base}" stroke="${MEDS[p.type].color}" stroke-width="2"/>`).join('');
+  const marks = dayFeels.map(f =>
+    feelShape(f.feel, xS(f.at), yS(curve ? concAtTime(curve.src, f.at) : 0), 3.5, 'var(--feel)', 'var(--bg)')).join('');
+  return `<svg class="hist-strip" width="${W}" height="${HIST_H}" aria-hidden="true">
+    <line x1="0" y1="${base}" x2="${W}" y2="${base}" style="stroke:var(--border)" stroke-width="1"/>${grid}${shape}${ticks}${marks}</svg>`;
+}
+
+function histDayHTML(sod, today, doses, dayFeels, curves, W) {
+  const label = sod === today ? 'Today' : sod === addDays(today, -1) ? 'Yesterday' : fmtDay(sod);
+  const total = doses.reduce((s, p) => s + MEDS[p.type].totalMg, 0);
+  const items = [
+    ...doses.map(p => {
+      const def = MEDS[p.type];
+      return { ts: p.takenAt, html: `<span class="hist-item"><span style="color:${def.color};font-weight:600">${def.shortLabel ?? def.label} ${def.totalMg}</span>${fmt(p.takenAt)}</span>` };
+    }),
+    ...dayFeels.map(f => {
+      const after = afterDose(f);
+      return { ts: f.at, html: `<span class="hist-item">${feelIcon(f.feel)}${FEELS[f.feel].label} ${fmt(f.at)}${after ? ` · ${after}` : ''}</span>` };
+    }),
+  ].sort((a, b) => a.ts - b.ts).map(i => i.html).join('');
+  return `
+    <div class="hist-day">
+      <div class="hist-day-head">
+        <span class="hist-date">${label}</span>
+        <span class="hist-total">${total ? `${total} mg` : ''}</span>
+      </div>
+      ${histStripSVG(sod, curves.byDay.get(sod), doses, dayFeels, curves.max, W)}
+      <div class="hist-items">${items}</div>
+    </div>`;
+}
+
+// "How long it lasts": for each day with a dose of a current (non-retired) med, the first check-in
+// of each kind after that day's dose, measured from the most recent dose. Days are grouped by that
+// day's current-med total, so a step-up to a new strength gets its own row. Medians, with the
+// number of days behind each. Hidden until there is at least one such check-in.
+function lastsSummaryHTML(dosesByDay) {
+  const first = new Map(); // dose day → { feel: ms after dose } for the first check-in of each kind
+  for (const f of [...feels].sort((a, b) => a.at - b.at)) {
+    const d = doseBefore(f.at);
+    if (!d || MEDS[d.type].retired) continue; // a check-in after a retired dose is about that dose
+    const rec = first.get(dayOf(d.takenAt)) ?? {};
+    if (rec[f.feel] == null) rec[f.feel] = f.at - d.takenAt;
+    first.set(dayOf(d.takenAt), rec);
+  }
+  const groups = new Map(); // day total mg → { days, [feel]: [ms, …] }
+  for (const [day, doses] of dosesByDay) {
+    const current = doses.filter(p => !MEDS[p.type].retired);
+    if (!current.length) continue;
+    const total = current.reduce((s, p) => s + MEDS[p.type].totalMg, 0);
+    const g = groups.get(total) ?? { days: 0, ...Object.fromEntries(Object.keys(FEELS).map(k => [k, []])) };
+    g.days++;
+    const rec = first.get(day) ?? {};
+    for (const k of Object.keys(FEELS)) if (rec[k] != null) g[k].push(rec[k]);
+    groups.set(total, g);
+  }
+  if (![...groups.values()].some(g => Object.keys(FEELS).some(k => g[k].length))) return '';
+  const median = xs => { const s = [...xs].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+  const days = n => `${n} day${n === 1 ? '' : 's'}`;
+  const rows = [...groups.entries()].sort((a, b) => a[0] - b[0]).map(([mg, g]) => `
+    <tr>
+      <td>${mg} mg<span class="hist-n">${days(g.days)}</span></td>
+      ${Object.keys(FEELS).map(k => g[k].length
+        ? `<td>${durStr(Math.round(median(g[k]) / 60000) * 60000) ?? '0m'}<span class="hist-n">${days(g[k].length)}</span></td>`
+        : `<td style="color:var(--muted)">—</td>`).join('')}
+    </tr>`).join('');
+  return `
+    <div class="hist-summary">
+      <div class="section-label">how long it lasts · median</div>
+      <table class="hist-table">
+        <thead><tr><th></th>${Object.values(FEELS).map(f => `<th>${f.label}</th>`).join('')}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function renderHistory() {
+  const sec = document.getElementById('section-history');
+  if (!pills.length && !feels.length) { sec.style.display = 'none'; _historyKey = null; return; }
+  sec.style.display = '';
+  const daysEl = document.getElementById('history-days');
+  const W = daysEl.clientWidth || 380;
+  const today = startOfLocalDay();
+  const doseKey = pills.map(p => `${p.id}:${p.type}:${p.takenAt}:${p.fed ? 1 : 0}`).join(',');
+  const key = `${today}|${_historyDays}|${W}|${doseKey}|${feels.map(f => `${f.id}:${f.at}:${f.feel}`).join(',')}`;
+  if (key === _historyKey) return;
+  _historyKey = key;
+
+  const curves = dayCurves(doseKey);
+  const dosesByDay = new Map(), feelsByDay = new Map();
+  for (const p of [...pills].sort((a, b) => a.takenAt - b.takenAt)) pushTo(dosesByDay, dayOf(p.takenAt), p);
+  for (const f of [...feels].sort((a, b) => a.at - b.at)) pushTo(feelsByDay, dayOf(f.at), f);
+  const earliest = Math.min(...dosesByDay.keys(), ...feelsByDay.keys());
+
+  // Newest first; a run of days with nothing logged collapses into one line
+  let html = '', gap = null, sod = today;
+  const flushGap = () => {
+    if (!gap) return;
+    const name = ts => ts === today ? 'Today' : fmtDay(ts);
+    html += `<div class="hist-gap">${gap.from === gap.to ? name(gap.from) : `${name(gap.from)} – ${name(gap.to)}`} · nothing logged</div>`;
+    gap = null;
+  };
+  for (let i = 0; i < _historyDays && sod >= earliest; i++, sod = addDays(sod, -1)) {
+    const doses = dosesByDay.get(sod) ?? [], dayFeels = feelsByDay.get(sod) ?? [];
+    if (!doses.length && !dayFeels.length) { gap = gap ? { ...gap, from: sod } : { from: sod, to: sod }; continue; }
+    flushGap();
+    html += histDayHTML(sod, today, doses, dayFeels, curves, W);
+  }
+  flushGap();
+  daysEl.innerHTML = html;
+  document.getElementById('history-summary').innerHTML = lastsSummaryHTML(dosesByDay);
+  document.getElementById('history-more').style.display = sod >= earliest ? '' : 'none';
+}
+
+function showMoreHistory() {
+  _historyDays += HISTORY_STEP;
+  renderHistory();
+}
+
 // ── Init ──────────────────────────────────────────────────
 document.documentElement.style.setProperty('--undo-duration', `${UNDO_DURATION_MS / 1000}s`);
 pills = loadPills();
+feels = loadFeels();
 // Cache stable (non-SVG) element refs once — SVG-internal refs are refreshed in renderChart
 _chart.el.tooltip   = document.getElementById('chart-tooltip');
 _chart.el.ttTime    = document.getElementById('tt-time');
@@ -1052,7 +1470,7 @@ document.addEventListener('change', e => {
 
 // ── Press feedback (iOS :active workaround) ───────────────
 (function() {
-  const SEL = '.dose-btn, .offset-chip, .fed-toggle, .x-btn, #undo-btn, #export-btn';
+  const SEL = '.dose-btn, .feel-chip, .offset-chip, .fed-toggle, .x-btn, #undo-btn, #export-btn, #import-btn, #history-more';
   const MIN_MS = 90;
   const pressAt = new WeakMap();
   const pressed = new Set();
