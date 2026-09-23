@@ -126,17 +126,16 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .exact-time-chip { flex: 1.25; min-width: 0; height: auto; color-scheme: dark; -webkit-appearance: none; appearance: none; }
 .exact-time-chip::-webkit-calendar-picker-indicator { opacity: .65; filter: invert(69%) sepia(20%) saturate(787%) hue-rotate(176deg); }
 #dose-when { color: var(--ir); }
-/* Feel check-ins: neutral inputs like the dose buttons (Decision #7), told apart by shape */
-.feel-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.feel-lbl { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim);
-  text-transform: uppercase; letter-spacing: .1em; width: 44px; flex-shrink: 0; }
-.feel-chip { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  font-family: 'DM Mono', monospace; font-size: 12px; padding: 12px 6px;
-  background: transparent; border: 1px solid var(--muted); border-radius: 12px;
-  color: var(--feel); cursor: pointer; touch-action: manipulation;
-  transition: opacity var(--t-base), transform var(--t-base) ease-out; }
-.feel-chip.pressing, .feel-chip:active { transform: scale(0.92); transition: transform var(--t-press) ease-in; }
+/* Feel bar: one segmented scale, want more → good → too intense (Decision #48); neutral like the dose buttons (Decision #7) */
+.feel-row { display: flex; margin-bottom: 8px; border: 1px solid var(--muted); border-radius: 12px; overflow: hidden; }
+.feel-chip { flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-family: 'DM Mono', monospace; font-size: 12px; padding: 12px 4px; white-space: nowrap;
+  background: transparent; border: none; color: var(--feel); cursor: pointer; touch-action: manipulation;
+  transition: opacity var(--t-base), background var(--t-base); }
+.feel-chip + .feel-chip { border-left: 1px solid var(--muted); }
+.feel-chip.pressing, .feel-chip:active { background: var(--border); transition: background var(--t-press); }
 .feel-chip.just-fired { opacity: .35; }
+.feel-chip:focus-visible { outline-offset: -3px; }
 .feel-icon { flex-shrink: 0; }
 /* Fed/fasted toggle switch on CR pill cards */
 .pill-card:has(.fed-toggle) .card-head { margin-bottom: 8px; }
@@ -177,10 +176,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   padding: 12px 0; border-bottom: 1px solid var(--surface); contain: layout style; }
 .log-row.expired { opacity: .3; }
 .log-type { font-size: 13px; font-weight: 700; min-width: 36px; }
-.log-mg { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--soft); min-width: 44px; }
+.log-mg { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--soft); min-width: 53px; }
 .log-t { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); flex: 1; }
 .log-status { font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
-.log-feel { display: inline-flex; align-items: center; gap: 6px; min-width: 88px;
+/* 97px = the widest label ("too intense"); with .log-mg's 53px every row's time starts at the same x */
+.log-feel { display: inline-flex; align-items: center; gap: 6px; min-width: 97px;
   font-family: 'DM Mono', monospace; font-size: 12px; color: var(--feel); }
 /* Buttons */
 .x-btn { background: none; border: none; color: var(--muted); font-size: 20px;
@@ -309,7 +309,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   <div class="section">
     <div class="section-label">log<span id="dose-when"></span></div>
     <div class="dose-grid" id="dose-grid"></div>
-    <div class="feel-row" id="feel-row"></div>
+    <div class="feel-row" id="feel-row" role="group" aria-label="How the dose feels"></div>
     <div class="offset-row" id="offset-row"></div>
   </div>
 
@@ -400,13 +400,22 @@ const OFFSETS = [
 ];
 const SCRUB_IDX = -1;
 
-// How a dose feels, as the owner logs it. FEELS keys are storage keys like MEDS keys:
-// loadFeels drops a check-in whose `feel` is not a key here, so never remove or rename one.
+// How a dose feels, as the owner logs it: one scale from not enough to too much (Decision #47).
+// FEELS keys are storage keys like MEDS keys: loadFeels drops a check-in whose `feel` is not a key
+// here, so never remove or rename one; retire it instead (`retired: true`: no button, past check-ins
+// still load and draw). Non-retired entries are the bar's buttons, left to right. `shape` is the
+// mark on the chart. `countsAfterMs`: in "how long it lasts", a check-in this soon after its dose
+// does not count ("want more" in the first hours is waiting for the dose to kick in).
 const FEELS = {
-  on:     { label: 'on' },
-  fading: { label: 'fading' },
-  off:    { label: 'off' },
+  more:    { label: 'want more',   shape: 'up', countsAfterMs: 2 * 3600000 },
+  good:    { label: 'good',        shape: 'dot' },
+  intense: { label: 'too intense', shape: 'down' },
+  // The first scale, retired 2026-09-23
+  on:      { label: 'on',     shape: 'dot',  retired: true },
+  fading:  { label: 'fading', shape: 'half', retired: true },
+  off:     { label: 'off',    shape: 'ring', retired: true },
 };
+const ACTIVE_FEELS = Object.keys(FEELS).filter(k => !FEELS[k].retired);
 
 // ── PK model ─────────────────────────────────────────────
 // NORM makes "mg eq" IR-peak-equivalent: 1 mg of IR (ka = KA_REF) peaks at exactly 1.0.
@@ -579,13 +588,22 @@ function doseBefore(ts) {
   return best;
 }
 const afterDose = f => { const d = doseBefore(f.at); return d ? (durStr(f.at - d.takenAt) ?? '0m') : null; };
-// Check-ins are told apart by shape, not hue (issue #35): filled = on, half = fading, hollow = off.
-// `ink` draws the mark; `paper` fills its hollow part ('none' lets the background through).
+// Check-ins are told apart by shape, not hue (issue #35), from FEELS[feel].shape. The scale's marks
+// point the way the owner would move the curve: up = want more, dot = good, down = too intense.
+// Retired feels keep their marks (half = fading, ring = off). `ink` draws the mark; `paper` is the
+// halo and hollow fill ('none' lets the background through).
 function feelShape(feel, cx, cy, r, ink, paper) {
+  const shape = FEELS[feel].shape;
   // r + 0.75 so the filled mark is as big as the rings (whose stroke adds 0.75); its stroke is a halo
-  if (feel === 'on') return `<circle cx="${cx}" cy="${cy}" r="${r + 0.75}" style="fill:${ink};stroke:${paper}" stroke-width="1.5"/>`;
+  if (shape === 'dot') return `<circle cx="${cx}" cy="${cy}" r="${r + 0.75}" style="fill:${ink};stroke:${paper}" stroke-width="1.5"/>`;
+  if (shape === 'up' || shape === 'down') {
+    // Equilateral triangle, its box centered on (cx, cy): h is half its height, w half its base
+    const h = 0.75 * (r + 1.5), w = 0.866 * (r + 1.5), tip = shape === 'up' ? -h : h;
+    const p = (x, y) => `${Math.round(x * 10) / 10},${Math.round(y * 10) / 10}`;
+    return `<polygon points="${p(cx, cy + tip)} ${p(cx - w, cy - tip)} ${p(cx + w, cy - tip)}" style="fill:${ink};stroke:${paper}" stroke-width="1.5" stroke-linejoin="round"/>`;
+  }
   const ring = `<circle cx="${cx}" cy="${cy}" r="${r}" style="fill:${paper};stroke:${ink}" stroke-width="1.5"/>`;
-  return feel === 'fading' ? ring + `<path d="M${cx},${cy - r}A${r},${r} 0 0 0 ${cx},${cy + r}Z" style="fill:${ink}"/>` : ring;
+  return shape === 'half' ? ring + `<path d="M${cx},${cy - r}A${r},${r} 0 0 0 ${cx},${cy + r}Z" style="fill:${ink}"/>` : ring;
 }
 const feelIcon = feel =>
   `<svg class="feel-icon" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">${feelShape(feel, 6, 6, 4.5, 'currentColor', 'none')}</svg>`;
@@ -1038,13 +1056,12 @@ function render() {
     });
   }
 
-  // Feel chips (static, only build once) — timed by the same when-row as the doses
+  // Feel bar (static, only build once): the non-retired scale, left to right, timed by the same when-row as the doses
   const fr = document.getElementById('feel-row');
   if (!fr.children.length) {
-    fr.innerHTML = `<span class="feel-lbl" aria-hidden="true">feels</span>` +
-      Object.entries(FEELS).map(([key, f]) =>
-        `<button class="feel-chip" onclick="logFeel('${key}')" aria-label="Log how it feels: ${f.label}">${feelIcon(key)}${f.label}</button>`
-      ).join('');
+    fr.innerHTML = ACTIVE_FEELS.map(key =>
+      `<button class="feel-chip" onclick="logFeel('${key}')" aria-label="Log how it feels: ${FEELS[key].label}">${feelIcon(key)}${FEELS[key].label}</button>`
+    ).join('');
   }
 
   // Offset chips — skip rebuild while user is in the time picker to avoid destroying focus mid-entry
@@ -1333,7 +1350,7 @@ function histDayHTML(sod, today, doses, dayFeels, curves, W) {
 }
 
 // "How long it lasts": for each day with a dose of a current (non-retired) med, the first check-in
-// of each kind after that day's dose, measured from the most recent dose. Days are grouped by that
+// of each current feel after that day's dose (past its `countsAfterMs`), measured from the most recent dose. Days are grouped by that
 // day's current-med total, so a step-up to a new strength gets its own row. Medians, with the
 // number of days behind each. Hidden until there is at least one such check-in.
 function lastsSummaryHTML(dosesByDay) {
@@ -1341,6 +1358,8 @@ function lastsSummaryHTML(dosesByDay) {
   for (const f of [...feels].sort((a, b) => a.at - b.at)) {
     const d = doseBefore(f.at);
     if (!d || MEDS[d.type].retired) continue; // a check-in after a retired dose is about that dose
+    if (FEELS[f.feel].retired) continue;       // retired feels still draw, but only the current scale counts
+    if (f.at - d.takenAt < (FEELS[f.feel].countsAfterMs ?? 0)) continue;
     const rec = first.get(dayOf(d.takenAt)) ?? {};
     if (rec[f.feel] == null) rec[f.feel] = f.at - d.takenAt;
     first.set(dayOf(d.takenAt), rec);
@@ -1350,19 +1369,19 @@ function lastsSummaryHTML(dosesByDay) {
     const current = doses.filter(p => !MEDS[p.type].retired);
     if (!current.length) continue;
     const total = current.reduce((s, p) => s + MEDS[p.type].totalMg, 0);
-    const g = groups.get(total) ?? { days: 0, ...Object.fromEntries(Object.keys(FEELS).map(k => [k, []])) };
+    const g = groups.get(total) ?? { days: 0, ...Object.fromEntries(ACTIVE_FEELS.map(k => [k, []])) };
     g.days++;
     const rec = first.get(day) ?? {};
-    for (const k of Object.keys(FEELS)) if (rec[k] != null) g[k].push(rec[k]);
+    for (const k of ACTIVE_FEELS) if (rec[k] != null) g[k].push(rec[k]);
     groups.set(total, g);
   }
-  if (![...groups.values()].some(g => Object.keys(FEELS).some(k => g[k].length))) return '';
+  if (![...groups.values()].some(g => ACTIVE_FEELS.some(k => g[k].length))) return '';
   const median = xs => { const s = [...xs].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
   const days = n => `${n} day${n === 1 ? '' : 's'}`;
   const rows = [...groups.entries()].sort((a, b) => a[0] - b[0]).map(([mg, g]) => `
     <tr>
       <td>${mg} mg<span class="hist-n">${days(g.days)}</span></td>
-      ${Object.keys(FEELS).map(k => g[k].length
+      ${ACTIVE_FEELS.map(k => g[k].length
         ? `<td>${durStr(Math.round(median(g[k]) / 60000) * 60000) ?? '0m'}<span class="hist-n">${days(g[k].length)}</span></td>`
         : `<td style="color:var(--muted)">—</td>`).join('')}
     </tr>`).join('');
@@ -1370,7 +1389,7 @@ function lastsSummaryHTML(dosesByDay) {
     <div class="hist-summary">
       <div class="section-label">how long it lasts · median</div>
       <table class="hist-table">
-        <thead><tr><th></th>${Object.values(FEELS).map(f => `<th>${f.label}</th>`).join('')}</tr></thead>
+        <thead><tr><th></th>${ACTIVE_FEELS.map(k => `<th>${FEELS[k].label}</th>`).join('')}</tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
