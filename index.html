@@ -239,7 +239,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .hist-day-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
 .hist-date { font-size: 13px; font-weight: 700; }
 .hist-total { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--soft); }
-.hist-strip { width: 100%; display: block; }
+.hist-strip { width: 100%; display: block; overflow: visible; } /* marks near the baseline would clip */
 .hist-items { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px;
   font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); }
 .hist-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
