@@ -1,6 +1,6 @@
 # Medikinetics — Project Context
 
-This file is the source of truth for all AI contributors. Claude reads it through `CLAUDE.md`; Codex reads it directly. Read it fully before starting any work, then read `ARCHITECTURE.md` (how the app works, its history, and the Decision Log) before changing anything it covers.
+This file is the source of truth for all AI contributors. Claude reads it through `CLAUDE.md`; Codex reads it directly. Read it in full before starting work, then read `ARCHITECTURE.md` (how the app works, its history, and the Decision Log) before changing anything it covers, so a change builds on decisions already logged instead of redoing or undoing them.
 
 ## What this is
 A personal PWA for tracking methylphenidate pharmacokinetics. All app logic lives in `index.html`; `sw.js` is the service worker; `manifest.webmanifest`, `fonts/` and `icons/` are static assets. One-compartment oral absorption model (Bateman equation). No build step, no framework, no test suite.
@@ -24,30 +24,30 @@ Shared constants: `KE=0.347` for every med; `NORM` makes "mg eq" IR-peak-equival
 
 ## Invariants and conventions
 - All app logic and styles stay in `index.html`; only `sw.js`, the manifest, `fonts/` and `icons/` ship alongside (Decision #1).
-- `MEDS` keys are storage keys. `loadPills` drops any stored dose whose `type` is not a `MEDS` key, and the next save makes the loss permanent. Never remove or rename a key. (verified: `loadPills`, 2026-09-22)
+- `MEDS` keys are storage keys. `loadPills` drops any stored dose whose `type` is not a `MEDS` key, and the next save makes the loss permanent, so keep every key exactly as it is, including when a med is retired.
 - To retire a med, set `retired: true` and keep its key: it loses its dose button, and its history still loads. Only non-retired entries get buttons, in declaration order.
-- Check-ins live in their own key, `medikinetics-feel-v1`, never in `medikinetics-v1` (`loadPills` would drop them). `FEELS` keys are storage keys the same way: `loadFeels` drops a check-in whose `feel` is not a key, so never remove or rename one. To retire a feel, set `retired: true` and keep its key: it loses its button, its past check-ins still load and draw, and it stops counting in "how long it lasts".
-- Import only adds. It skips anything already stored, anything with an unknown type or a future time, and never changes or removes a stored dose or check-in.
+- Check-ins live in their own key, `medikinetics-feel-v1`, not in `medikinetics-v1`, where `loadPills` would drop them. `FEELS` keys are storage keys the same way: `loadFeels` drops a check-in whose `feel` isn't a key, so keep every feel key exactly as it is. To retire a feel, set `retired: true` and keep its key: it loses its button, its past check-ins still load and draw, and it stops counting in "how long it lasts".
+- Import only adds: it skips anything already stored, anything with an unknown type or a future time, and leaves stored doses and check-ins as they are.
 - All phase iteration goes through `phasesFor(pill)`, and every concentration goes through `phaseConcFor(ph, tH)` (bolus vs zero-order window). Every phase carries `durationHours` (display, window end, visibility); zero-order phases also carry `windowHours` (PK). CR pills store `fed: boolean` (default false).
-- Med colors live in `MEDS.*.color`, and `MEDS.IR.color` is also the total-curve color. The `:root` tokens `--con: #e58fb8`, `--cr: #9d7fd4` and `--sym: #d4ad68` mirror the Concerta, `MEDS.CR` and `MEDS.SYMR20` colors for reference (no rule reads them) — keep them matching.
-- `toggleFed()` never calls `render()` — it would kill the toggle's slide transition (Decision #3).
-- Named constants stay single-source: `CLEARING_THRESHOLD`, `RISING_LOOKAHEAD_MS`, `UNDO_DURATION_MS`, `KE`/`KA_REF`/`NORM`.
-- No dose or check-in is ever in the future: `selectedTime` clamps both to now (Decision #38). History is kept forever; never prune `medikinetics-v1` or `medikinetics-feel-v1`.
-- `VERSION` in `sw.js` and `#version-label` in `index.html` are stamped by CI on every push to `main`. Never hand-edit them.
-- The repo is public: no personal health data beyond the meds the app models.
+- Med colors live in `MEDS.*.color`, and `MEDS.IR.color` is also the total-curve color. The `:root` tokens `--con: #e58fb8`, `--cr: #9d7fd4` and `--sym: #d4ad68` mirror the Concerta, `MEDS.CR` and `MEDS.SYMR20` colors for reference (no rule reads them); keep them matching.
+- `toggleFed()` doesn't call `render()`, since a render would kill the toggle's slide transition (Decision #3).
+- Named constants stay single-source, so a tuning change happens in one place: `CLEARING_THRESHOLD`, `RISING_LOOKAHEAD_MS`, `UNDO_DURATION_MS`, `KE`/`KA_REF`/`NORM`.
+- No dose or check-in is in the future: `selectedTime` clamps both to now (Decision #38). History is kept forever, so leave `medikinetics-v1` and `medikinetics-feel-v1` unpruned.
+- CI stamps `VERSION` in `sw.js` and `#version-label` in `index.html` on every push to `main`; leave both to CI rather than editing them by hand.
+- The repo is public: keep personal health data out of it beyond the meds the app models.
 
-## Workflow — follow exactly
+## Workflow
 1. Read `git log`, recent merged PRs and `ARCHITECTURE.md` to understand current state before starting
-2. Create a dedicated branch for each feature or fix — use `claude/<slug>` for Claude sessions, `codex/<slug>` for Codex sessions
-3. Open a PR — do not merge yourself, wait for user approval
-4. Never push directly to main. The only exception is the CI version-stamp bot, which commits to `main` after every merge — pull before branching.
-5. Never infer upcoming work from `README.md` — the README describes what is built, not what comes next. Ask the user what to do next.
-6. Use conventional commit prefixes on every commit: `feat:` (new capability), `fix:` (bug), `docs:` (README/AGENTS.md/ARCHITECTURE.md only), `chore:` (refactor, rename, housekeeping).
-7. Before opening a PR: check whether README needs updating (any user-visible behavior changed?); check whether a new architectural judgment call was made (if yes, add a Decision Log row to `ARCHITECTURE.md`, and update its sections if the architecture changed); check open issues and link the relevant one in the PR body.
-8. Write the PR body explicitly — what changed, why, and how it was tested (on iPhone Safari where it matters). No placeholder text. Include a `Closes #N` line only when an issue exists.
+2. Work on a dedicated branch for each feature or fix, named `claude/<slug>` for Claude sessions and `codex/<slug>` for Codex sessions, so two agents' work stays separate and reviewable on its own.
+3. Open a PR and leave the merge to the user, who approves it, since merging to `main` deploys to GitHub Pages.
+4. Push to your branch rather than directly to `main`, for the same reason: `main` is the live app. The only exception is the CI version-stamp bot, which commits to `main` after every merge, so pull before branching.
+5. Ask the user what to do next rather than inferring upcoming work from `README.md`; the README describes what is built, not what comes next.
+6. Start each commit with a conventional prefix, so the history shows the kind of change at a glance: `feat:` (new capability), `fix:` (bug), `docs:` (README/AGENTS.md/ARCHITECTURE.md only), `chore:` (refactor, rename, housekeeping).
+7. Before opening a PR, run three checks so the docs and issues stay in step with the code: whether README needs updating (any user-visible behavior changed?); whether a new architectural judgment call was made (if yes, add a Decision Log row to `ARCHITECTURE.md`, and update its sections if the architecture changed); and which open issue the work relates to, so the PR body can link it.
+8. In the PR body, say what changed, why, and how it was tested (on iPhone Safari where it matters), in real words rather than placeholder text, since the user decides on the merge from that description. Include a `Closes #N` line only when an issue exists.
 
 ## Multi-agent rules
-This project accepts contributions from multiple AI agents (Claude: `claude/<slug>` branches, Codex: `codex/<slug>` branches). Rules for all AI contributors:
-- All judgment calls go in the Decision Log in `ARCHITECTURE.md`, regardless of which agent made the call
-- Human is the gate for all PR merges — do not approve or merge another agent's PR
-- Never infer what to work on next — ask the user
+This project accepts contributions from multiple AI agents (Claude: `claude/<slug>` branches, Codex: `codex/<slug>` branches). For all AI contributors:
+- All judgment calls go in the Decision Log in `ARCHITECTURE.md`, regardless of which agent made the call, so every agent reads the same record of why things are as they are
+- The human is the gate for all PR merges, so leave approving and merging another agent's PR to them
+- For what to work on next, ask the user (workflow step 5)
