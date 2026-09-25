@@ -20,11 +20,11 @@ I enjoy this project because it introduces me to basic development concepts and 
 
 ## How it feels
 
-Under the dose buttons, one bar logs how the dose is working for what I need right now: **want more**, **good**, **too intense**. It uses the same time row as the doses, so "-1h, then want more" logs it an hour back. Each tap shows as a mark on the curve (▲ want more, ● good, ▼ too intense), in the 24h log with its time after the dose, and in History. They're optional; nothing asks for them. The first version asked on / fading / off; those check-ins still show.
+Under the dose buttons, one bar logs how the dose fits what I need right now: **not enough**, **about right**, **too much**. "About right" covers both "feels good" and "can't tell, but it's fine". It uses the same time row as the doses, so "-1h, then not enough" logs it an hour back. Each tap shows as a mark on the curve (▲ not enough, ● about right, ▼ too much), in the 24h log with its time after the dose, and in History. They're optional; nothing asks for them. The first version asked on / fading / off; those check-ins still show.
 
 ## History
 
-Below the log: every day, newest first. Each day has the model's curve on the same 00–24 axis, its doses and its check-ins, and runs of empty days fold into one line. Once there are check-ins, a table on top shows how long it lasts: the median time from the dose to the first want more, good and too intense, one row per daily dose (72 mg, 90 mg, …). A "want more" in the first two hours means it hasn't kicked in yet, so it doesn't count there.
+Below the log: every day, newest first. Each day has the model's curve on the same 00–24 axis, its doses and its check-ins, and runs of empty days fold into one line. Once there are check-ins, a table on top shows how long it lasts: the median time from the dose to the first not enough, about right and too much, one row per daily dose (72 mg, 90 mg, …). A "not enough" in the first two hours means it hasn't kicked in yet, so it doesn't count there.
 
 ## Model
 

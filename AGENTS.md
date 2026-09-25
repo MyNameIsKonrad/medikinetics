@@ -4,7 +4,7 @@ This file is the source of truth for all AI contributors. Claude reads it throug
 
 ## What this is
 A personal PWA for tracking methylphenidate pharmacokinetics. All app logic lives in `index.html`; `sw.js` is the service worker; `manifest.webmanifest`, `fonts/` and `icons/` are static assets. One-compartment oral absorption model (Bateman equation). No build step, no framework, no test suite.
-Next to the model's curve, the owner logs how a dose is working (want more / good / too intense check-ins). A History section shows every stored day and, from the check-ins, how long a dose lasts. Export and import carry both.
+Next to the model's curve, the owner logs how a dose is working (not enough / about right / too much check-ins). A History section shows every stored day and, from the check-ins, how long a dose lasts. Export and import carry both.
 Deployed on GitHub Pages from `main` (the repo is public); test target is Safari on iPhone, installed to the home screen.
 Run locally with `python3 -m http.server 8642` from the repo root (`.claude/launch.json` has this config). The service worker needs http(s), not `file://`.
 
