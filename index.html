@@ -126,7 +126,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .exact-time-chip { flex: 1.25; min-width: 0; height: auto; color-scheme: dark; -webkit-appearance: none; appearance: none; }
 .exact-time-chip::-webkit-calendar-picker-indicator { opacity: .65; filter: invert(69%) sepia(20%) saturate(787%) hue-rotate(176deg); }
 #dose-when { color: var(--ir); }
-/* Feel bar: one segmented scale, want more → good → too intense (Decision #48); neutral like the dose buttons (Decision #7) */
+/* Feel bar: one segmented scale, not enough → about right → too much (Decisions #48, #51); neutral like the dose buttons (Decision #7) */
 .feel-row { display: flex; margin-bottom: 8px; border: 1px solid var(--muted); border-radius: 12px; overflow: hidden; }
 .feel-chip { flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   font-family: 'DM Mono', monospace; font-size: 12px; padding: 12px 4px; white-space: nowrap;
@@ -179,7 +179,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 .log-mg { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--soft); min-width: 53px; }
 .log-t { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); flex: 1; }
 .log-status { font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
-/* 97px = the widest label ("too intense"); with .log-mg's 53px every row's time starts at the same x */
+/* 97px = the widest label ("about right"); with .log-mg's 53px every row's time starts at the same x */
 .log-feel { display: inline-flex; align-items: center; gap: 6px; min-width: 97px;
   font-family: 'DM Mono', monospace; font-size: 12px; color: var(--feel); }
 /* Buttons */
@@ -405,11 +405,12 @@ const SCRUB_IDX = -1;
 // here, so never remove or rename one; retire it instead (`retired: true`: no button, past check-ins
 // still load and draw). Non-retired entries are the bar's buttons, left to right. `shape` is the
 // mark on the chart. `countsAfterMs`: in "how long it lasts", a check-in this soon after its dose
-// does not count ("want more" in the first hours is waiting for the dose to kick in).
+// does not count ("not enough" in the first hours is waiting for the dose to kick in).
+// Labels are display only (Decision #51): the keys `more` / `good` / `intense` predate them.
 const FEELS = {
-  more:    { label: 'want more',   shape: 'up', countsAfterMs: 2 * 3600000 },
-  good:    { label: 'good',        shape: 'dot' },
-  intense: { label: 'too intense', shape: 'down' },
+  more:    { label: 'not enough',  shape: 'up', countsAfterMs: 2 * 3600000 },
+  good:    { label: 'about right', shape: 'dot' },
+  intense: { label: 'too much',    shape: 'down' },
   // The first scale, retired 2026-09-23
   on:      { label: 'on',     shape: 'dot',  retired: true },
   fading:  { label: 'fading', shape: 'half', retired: true },
@@ -589,7 +590,7 @@ function doseBefore(ts) {
 }
 const afterDose = f => { const d = doseBefore(f.at); return d ? (durStr(f.at - d.takenAt) ?? '0m') : null; };
 // Check-ins are told apart by shape, not hue (issue #35), from FEELS[feel].shape. The scale's marks
-// point the way the owner would move the curve: up = want more, dot = good, down = too intense.
+// point the way the owner would move the curve: up = not enough, dot = about right, down = too much.
 // Retired feels keep their marks (half = fading, ring = off). `ink` draws the mark; `paper` is the
 // halo and hollow fill ('none' lets the background through).
 function feelShape(feel, cx, cy, r, ink, paper) {
